@@ -156,14 +156,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       generateGroupsLogic(presentPlayers);
 
     if (genError) {
-      setError(
-        genError === "Need at least 3 players to form a group."
-          ? "Pro vytvoření skupin je potřeba alespoň 3 hráčů."
-          : genError ===
-            "Cannot form groups with 5 players (groups must be 3 or 4)."
-          ? "Nelze vytvořit skupiny s 5 hráči (skupiny musí být po 3 nebo 4)."
-          : genError
-      );
+      setError(genError);
       return;
     }
 
@@ -247,6 +240,11 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
     setPlacementsForReview(null);
   }, []);
 
+  const generateBtnText = useMemo(() => {
+    if (presentPlayers.length === 2) return "Generovat samostatný zápas";
+    return `Generovat skupiny (${presentPlayers.length} vybráno)`;
+  }, [presentPlayers.length]);
+
   return (
     <div className="space-y-8">
       {isReviewModalOpen && proposedPlayers && placementsForReview && (
@@ -283,7 +281,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
           disabled={presentPlayers.length < 2}
           className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-300 shadow-lg transform hover:scale-105"
         >
-          Generovat skupiny ({presentPlayers.length} vybráno)
+          {generateBtnText}
         </button>
         {error && <p className="text-red-400 mt-4 font-medium">{error}</p>}
       </div>
@@ -291,7 +289,9 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       {groups.length > 0 && (
         <div>
           <h2 className="text-2xl font-semibold mb-6 text-center text-indigo-400">
-            Vygenerované skupiny
+            {groups.length === 1 && groups[0].length === 2
+              ? "Samostatný zápas"
+              : "Vygenerované skupiny"}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {groups.map((group, index) => (
