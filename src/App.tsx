@@ -1,193 +1,669 @@
-import React, { useState, useEffect } from "react";
-// import supabase from "./utils/supabase";
-import type { Player, RoundHistoryEntry } from "./types";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
+import type { Session } from "@supabase/supabase-js";
+import type {
+  Player,
+  RoundHistoryEntry,
+  DBLeague,
+  DBSeason,
+  DBPlayerInLeague,
+  DBRound,
+  DBPlayer,
+  DBMatch,
+} from "./types";
 import LeagueManager from "./components/LeagueManager";
 import Header from "./components/Header";
 import PlayersTab from "./components/PlayersTab";
 import HistoryTab from "./components/HistoryTab";
+import SetupTab from "./components/SetupTab";
 import TabButton from "./components/TabButton";
-
-const initialPlayers: Player[] = [
-  { id: 1, name: "Alice", rank: 1 },
-  { id: 2, name: "Bob", rank: 2 },
-  { id: 3, name: "Charlie", rank: 3 },
-  { id: 4, name: "Diana F", rank: 4 },
-];
+import Auth from "./components/Auth";
+import Toast, { ToastType } from "./components/Toast";
+import { getSupabase } from "./utils/supabase";
+import { calculateStandings } from "./utils/statsUtils";
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("League");
-  const [players, setPlayers] = useState<Player[]>(() => {
-    try {
-      const savedPlayers = localStorage.getItem("leaguePlayers");
-      if (savedPlayers) {
-        const parsed = JSON.parse(savedPlayers);
-        if (Array.isArray(parsed)) {
-          return parsed.sort((a: Player, b: Player) => a.rank - b.rank);
+  const [session, setSession] = useState<Session | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("Players");
+  const [showLogin, setShowLogin] = useState<boolean>(false);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [allGlobalPlayers, setAllGlobalPlayers] = useState<DBPlayer[]>([]);
+  const [roundHistory, setRoundHistory] = useState<RoundHistoryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: ToastType;
+  } | null>(null);
+
+  const [leagues, setLeagues] = useState<DBLeague[]>([]);
+  const [currentLeagueId, setCurrentLeagueId] = useState<string | null>(null);
+  const [seasons, setSeasons] = useState<DBSeason[]>([]);
+  const [currentSeasonId, setCurrentSeasonId] = useState<string | null>(null);
+
+  const [presentPlayerIds, setPresentPlayerIds] = useState<Set<string>>(
+    new Set()
+  );
+
+  const isAuthenticated = !!session;
+
+  const showToast = (message: string, type: ToastType = "success") => {
+    setToast({ message, type });
+  };
+
+  const handleSecurityError = useCallback((error: any) => {
+    if (
+      error?.message?.includes("JWT") ||
+      error?.status === 401 ||
+      error?.status === 403
+    ) {
+      setDbError("Vaše relace vypršela nebo nemáte dostatečná oprávnění.");
+      setSession(null);
+      setShowLogin(true);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const loadBaseData = useCallback(
+    async (leagueId?: string, forceRefreshLeagues = false) => {
+      const supabase = getSupabase();
+      if (!supabase)
+        throw new Error("Připojení k databázi není nakonfigurováno.");
+
+      let activeLeagues = leagues;
+      if (activeLeagues.length === 0 || forceRefreshLeagues) {
+        const { data, error } = await supabase
+          .from("leagues")
+          .select("*")
+          .order("name");
+        if (error) {
+          handleSecurityError(error);
+          throw error;
         }
+        activeLeagues = (data as DBLeague[]) || [];
+        setLeagues(activeLeagues);
       }
-    } catch (error) {
-      console.error("Error loading players from localStorage:", error);
-    }
-    return initialPlayers;
-  });
 
-  const [roundHistory, setRoundHistory] = useState<RoundHistoryEntry[]>(() => {
-    try {
-      const savedHistory = localStorage.getItem("leagueRoundHistory");
-      if (savedHistory) {
-        const parsed = JSON.parse(savedHistory);
-        if (Array.isArray(parsed)) return parsed;
+      const lid =
+        leagueId ||
+        currentLeagueId ||
+        (activeLeagues.length > 0 ? activeLeagues[0].id : null);
+      if (!lid) return { leagueId: null, seasons: [] };
+      if (!currentLeagueId || currentLeagueId !== lid) setCurrentLeagueId(lid);
+
+      const { data: seasonsData, error: sErr } = await supabase
+        .from("seasons")
+        .select("*")
+        .eq("league_id", lid)
+        .order("created_at", { ascending: false });
+      if (sErr) {
+        handleSecurityError(sErr);
+        throw sErr;
       }
-    } catch (error) {
-      console.error("Error loading round history from localStorage:", error);
+
+      return { leagueId: lid, seasons: (seasonsData as DBSeason[]) || [] };
+    },
+    [leagues, currentLeagueId, handleSecurityError]
+  );
+
+  const fetchGlobalPlayers = useCallback(async () => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from("players")
+      .select("*")
+      .order("last_name", { ascending: true });
+    if (!error && data) {
+      setAllGlobalPlayers(data as DBPlayer[]);
     }
-    return [];
-  });
+  }, []);
+
+  const fetchData = useCallback(
+    async (
+      leagueId?: string,
+      seasonId?: string,
+      forceRefreshLeagues = false
+    ) => {
+      setIsLoading(true);
+      setDbError(null);
+      const supabase = getSupabase();
+      if (!supabase) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const base = await loadBaseData(leagueId, forceRefreshLeagues);
+        setSeasons(base.seasons);
+
+        // Also fetch all global players for the setup tab
+        await fetchGlobalPlayers();
+
+        let sid = seasonId || currentSeasonId;
+        if (leagueId && leagueId !== currentLeagueId) {
+          sid = base.seasons.length > 0 ? base.seasons[0].id : null;
+          setPresentPlayerIds(new Set());
+        } else if (!sid || !base.seasons.find((s) => s.id === sid)) {
+          sid = base.seasons.length > 0 ? base.seasons[0].id : null;
+        }
+        setCurrentSeasonId(sid);
+
+        if (base.leagueId) {
+          const { data: pilData, error: pilErr } = await supabase
+            .from("players_in_leagues")
+            .select("id, rank, player_id, players(id, first_name, last_name)")
+            .eq("league_id", base.leagueId)
+            .order("rank", { ascending: true });
+
+          if (pilErr) {
+            handleSecurityError(pilErr);
+            throw pilErr;
+          }
+
+          setPlayers(
+            ((pilData as unknown as DBPlayerInLeague[]) || []).map((row) => ({
+              id: row.players!.id,
+              first_name: row.players!.first_name,
+              last_name: row.players!.last_name,
+              name: `${row.players!.first_name} ${
+                row.players!.last_name
+              }`.trim(),
+              rank: row.rank,
+            }))
+          );
+
+          if (sid) {
+            const { data: roundsData, error: rErr } = await supabase
+              .from("rounds")
+              .select("*")
+              .eq("season_id", sid)
+              .order("created_at", { ascending: false });
+            if (rErr) throw rErr;
+
+            setRoundHistory(
+              ((roundsData as unknown as DBRound[]) || []).map((r) => ({
+                id: r.id,
+                date: r.created_at,
+                groups: r.details?.groups || [],
+                scores: r.details?.scores || {},
+                finalPlacements: r.details?.finalPlacements || [],
+                playersBefore: r.details?.playersBefore || [],
+                playersAfter: r.details?.playersAfter || [],
+                present_players: r.present_players || [],
+              }))
+            );
+          } else {
+            setRoundHistory([]);
+          }
+        }
+      } catch (err: unknown) {
+        if (!handleSecurityError(err)) {
+          const msg = err instanceof Error ? err.message : String(err);
+          setDbError(msg || "Nepodařilo se načíst data.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      currentLeagueId,
+      currentSeasonId,
+      loadBaseData,
+      handleSecurityError,
+      fetchGlobalPlayers,
+    ]
+  );
 
   useEffect(() => {
-    try {
-      localStorage.setItem("leaguePlayers", JSON.stringify(players));
-    } catch (error) {
-      console.error("Error saving players to localStorage:", error);
-    }
-  }, [players]);
+    const supabase = getSupabase();
+    if (!supabase) return;
+    fetchData();
 
-  useEffect(() => {
-    try {
-      localStorage.setItem("leagueRoundHistory", JSON.stringify(roundHistory));
-    } catch (error) {
-      console.error("Error saving round history to localStorage:", error);
-    }
-  }, [roundHistory]);
-
-  const handleAddPlayers = (names: string[]) => {
-    setPlayers((prevPlayers) => {
-      const existingNames = new Set(
-        prevPlayers.map((p) => p.name.toLowerCase())
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: currentSession } }) =>
+        setSession(currentSession)
       );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+      if (currentSession) {
+        setShowLogin(false);
+        setDbError(null);
+        showToast("Přihlášení proběhlo úspěšně.");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [fetchData]);
 
-      const newUniqueNames = Array.from(
-        new Set(
-          names
-            .map((name) => name.trim())
-            .filter((name) => name.length > 0)
-            .filter((name) => !existingNames.has(name.toLowerCase()))
-        )
-      );
+  const handleAddPlayers = async (names: string[]) => {
+    if (!isAuthenticated || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
 
-      if (newUniqueNames.length === 0) {
-        return prevPlayers;
+    try {
+      for (const fullName of names) {
+        const parts = fullName.trim().split(" ");
+        const firstName = parts[0];
+        const lastName = parts.slice(1).join(" ") || "-";
+
+        const { data: pData, error: pErr } = await supabase
+          .from("players")
+          .insert({ first_name: firstName, last_name: lastName })
+          .select()
+          .single();
+        if (pErr) throw pErr;
+
+        const insertedPlayer = pData as DBPlayer;
+
+        const { error: pilErr } = await supabase
+          .from("players_in_leagues")
+          .insert({
+            league_id: currentLeagueId,
+            player_id: insertedPlayer.id,
+            rank: players.length + 1,
+          });
+        if (pilErr) throw pilErr;
+      }
+      showToast(`${names.length} hráč(ů) byl úspěšně přidán.`);
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err)) {
+        showToast("Chyba při přidávání hráčů.", "error");
+      }
+    }
+  };
+
+  const handleAddExistingPlayer = async (playerId: string) => {
+    if (!isAuthenticated || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+      const { error: pilErr } = await supabase
+        .from("players_in_leagues")
+        .insert({
+          league_id: currentLeagueId,
+          player_id: playerId,
+          rank: players.length + 1,
+        });
+      if (pilErr) throw pilErr;
+
+      showToast("Hráč byl úspěšně přidán do ligy.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err)) {
+        showToast("Chyba při přidávání hráče.", "error");
+      }
+    }
+  };
+
+  const handleRemovePlayer = async (playerId: string) => {
+    if (!isAuthenticated || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error: deleteLinkError } = await supabase
+        .from("players_in_leagues")
+        .delete()
+        .eq("player_id", playerId)
+        .eq("league_id", currentLeagueId);
+
+      if (deleteLinkError) throw deleteLinkError;
+
+      const { data: otherLeagues, error: checkError } = await supabase
+        .from("players_in_leagues")
+        .select("id")
+        .eq("player_id", playerId);
+
+      if (checkError) throw checkError;
+
+      if (!otherLeagues || otherLeagues.length === 0) {
+        const { error: deletePlayerError } = await supabase
+          .from("players")
+          .delete()
+          .eq("id", playerId);
+        if (deletePlayerError) throw deletePlayerError;
       }
 
-      const newPlayers: Player[] = newUniqueNames.map((name, index) => ({
-        id: Date.now() + index,
-        name: name,
-        rank: 0, // dummy rank
-      }));
-
-      const updatedPlayers = [...prevPlayers, ...newPlayers];
-
-      return updatedPlayers.map((player, index) => ({
-        ...player,
-        rank: index + 1,
-      }));
-    });
+      setPresentPlayerIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(playerId);
+        return newSet;
+      });
+      showToast("Hráč byl odebrán z aktuální ligy.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err)) {
+        showToast("Chyba při odebírání hráče.", "error");
+      }
+    }
   };
 
-  const handleRemovePlayer = (playerId: number) => {
-    setPlayers((prevPlayers) => {
-      const updatedPlayers = prevPlayers.filter((p) => p.id !== playerId);
-      const rerankedPlayers = updatedPlayers.map((player, index) => ({
-        ...player,
-        rank: index + 1,
-      }));
-      return rerankedPlayers;
-    });
+  const handleUpdatePlayer = async (updatedPlayer: Player) => {
+    if (!isAuthenticated || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      await supabase
+        .from("players")
+        .update({
+          first_name: updatedPlayer.first_name,
+          last_name: updatedPlayer.last_name,
+        })
+        .eq("id", updatedPlayer.id);
+
+      await supabase
+        .from("players_in_leagues")
+        .update({
+          rank: updatedPlayer.rank,
+        })
+        .eq("player_id", updatedPlayer.id)
+        .eq("league_id", currentLeagueId);
+
+      showToast("Hráč byl aktualizován.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err)) {
+        showToast("Chyba při aktualizaci hráče.", "error");
+      }
+    }
   };
 
-  const handleUpdatePlayer = (updatedPlayer: Player) => {
-    setPlayers((prevPlayers) => {
-      const otherPlayers = prevPlayers.filter((p) => p.id !== updatedPlayer.id);
-      const newRank = Math.max(
-        1,
-        Math.min(prevPlayers.length, updatedPlayer.rank)
-      );
-      const newRankIndex = newRank - 1;
-
-      const newPlayerList = [
-        ...otherPlayers.slice(0, newRankIndex),
-        { ...updatedPlayer, rank: newRank },
-        ...otherPlayers.slice(newRankIndex),
-      ];
-
-      return newPlayerList.map((player, index) => ({
-        ...player,
-        rank: index + 1,
-      }));
-    });
-  };
-
-  const handleRoundComplete = (
+  const handleRoundComplete = async (
     finalPlayers: Player[],
-    newHistoryEntry: RoundHistoryEntry
+    entry: RoundHistoryEntry
   ) => {
-    setPlayers(finalPlayers);
-    setRoundHistory((prev) => [newHistoryEntry, ...prev]);
+    if (!isAuthenticated || !currentSeasonId || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+      const presentIds = finalPlayers
+        .filter((p) => entry.present_players?.includes(p.id))
+        .map((p) => p.id);
+
+      const { data: roundDataRaw, error: roundErr } = await supabase
+        .from("rounds")
+        .insert({
+          season_id: currentSeasonId,
+          present_players: presentIds,
+          details: {
+            groups: entry.groups,
+            scores: entry.scores,
+            finalPlacements: entry.finalPlacements,
+            playersBefore: entry.playersBefore,
+            playersAfter: entry.playersAfter,
+          },
+        })
+        .select()
+        .single();
+
+      if (roundErr) throw roundErr;
+      const roundData = roundDataRaw as DBRound;
+
+      const matchesToInsert: DBMatch[] = [];
+      entry.groups.forEach((group, idx) => {
+        const gNum = idx + 1;
+        const scores = entry.scores;
+        if (group.length === 4) {
+          const [p1, p2, p3, p4] = group;
+          const m1 = scores[`g${gNum}-r1-m1`];
+          const m2 = scores[`g${gNum}-r1-m2`];
+          if (m1)
+            matchesToInsert.push({
+              round_id: roundData.id,
+              player_one_id: p1.id,
+              player_two_id: p4.id,
+              player_one_score: parseInt(m1.score1, 10),
+              player_two_score: parseInt(m1.score2, 10),
+            });
+          if (m2)
+            matchesToInsert.push({
+              round_id: roundData.id,
+              player_one_id: p2.id,
+              player_two_id: p3.id,
+              player_one_score: parseInt(m2.score1, 10),
+              player_two_score: parseInt(m2.score2, 10),
+            });
+
+          if (m1 && m2) {
+            const w1 =
+              parseInt(m1.score1, 10) > parseInt(m1.score2, 10) ? p1 : p4;
+            const l1 =
+              parseInt(m1.score1, 10) > parseInt(m1.score2, 10) ? p4 : p1;
+            const w2 =
+              parseInt(m2.score1, 10) > parseInt(m2.score2, 10) ? p2 : p3;
+            const l2 =
+              parseInt(m2.score1, 10) > parseInt(m2.score2, 10) ? p3 : p2;
+            const m3 = scores[`g${gNum}-r2-m1`];
+            const m4 = scores[`g${gNum}-r2-m2`];
+            if (m3)
+              matchesToInsert.push({
+                round_id: roundData.id,
+                player_one_id: w1.id,
+                player_two_id: w2.id,
+                player_one_score: parseInt(m3.score1, 10),
+                player_two_score: parseInt(m3.score2, 10),
+              });
+            if (m4)
+              matchesToInsert.push({
+                round_id: roundData.id,
+                player_one_id: l1.id,
+                player_two_id: l2.id,
+                player_one_score: parseInt(m4.score1, 10),
+                player_two_score: parseInt(m4.score2, 10),
+              });
+          }
+        } else if (group.length === 3) {
+          const [p1, p2, p3] = group;
+          [1, 2, 3].forEach((m) => {
+            const ms = scores[`g${gNum}-m${m}`];
+            if (!ms) return;
+            const pair = m === 1 ? [p1, p2] : m === 2 ? [p1, p3] : [p2, p3];
+            matchesToInsert.push({
+              round_id: roundData.id,
+              player_one_id: pair[0].id,
+              player_two_id: pair[1].id,
+              player_one_score: parseInt(ms.score1, 10),
+              player_two_score: parseInt(ms.score2, 10),
+            });
+          });
+        }
+      });
+
+      if (matchesToInsert.length > 0) {
+        await supabase.from("matches").insert(matchesToInsert);
+      }
+
+      const { data: existingLinks } = await supabase
+        .from("players_in_leagues")
+        .select("id, player_id")
+        .eq("league_id", currentLeagueId);
+
+      const linkMap = new Map(
+        ((existingLinks as DBPlayerInLeague[]) || []).map((l) => [
+          l.player_id,
+          l.id,
+        ])
+      );
+
+      const updates = finalPlayers
+        .map((p) => {
+          const rowId = linkMap.get(p.id);
+          return {
+            id: rowId,
+            league_id: currentLeagueId,
+            player_id: p.id,
+            rank: p.rank,
+          };
+        })
+        .filter((u) => u.id);
+
+      await supabase.from("players_in_leagues").upsert(updates);
+
+      showToast("Výsledky kola byly uloženy a žebříček aktualizován.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err)) {
+        showToast("Chyba při ukládání kola.", "error");
+      }
+    }
+  };
+
+  const renderContent = () => {
+    if (isLoading)
+      return (
+        <div className="flex justify-center py-24">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+        </div>
+      );
+
+    if (dbError)
+      return (
+        <div className="bg-red-900/50 p-6 rounded-2xl text-red-100 flex flex-col items-center gap-4 max-w-lg mx-auto border border-red-500/30">
+          <svg
+            className="w-12 h-12 text-red-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <span className="text-center font-medium">{dbError}</span>
+          <div className="flex gap-4">
+            <button
+              className="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-xl transition-colors font-bold"
+              onClick={() => fetchData()}
+            >
+              Zkusit znovu
+            </button>
+            <button
+              className="bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-xl transition-colors font-bold shadow-lg"
+              onClick={() => setShowLogin(true)}
+            >
+              Znovu přihlásit
+            </button>
+          </div>
+        </div>
+      );
+
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {activeTab === "League" && isAuthenticated && (
+          <LeagueManager
+            allPlayers={players}
+            presentPlayerIds={presentPlayerIds}
+            setPresentPlayerIds={setPresentPlayerIds}
+            onRoundComplete={handleRoundComplete}
+          />
+        )}
+        {activeTab === "Players" && (
+          <PlayersTab
+            players={players}
+            calculatedStats={calculateStandings(players, roundHistory).stats}
+            calculatedStreaks={
+              calculateStandings(players, roundHistory).streaks
+            }
+            onRemovePlayer={handleRemovePlayer}
+            onUpdatePlayer={handleUpdatePlayer}
+            isAuthenticated={isAuthenticated}
+          />
+        )}
+        {activeTab === "History" && (
+          <HistoryTab
+            roundHistory={roundHistory}
+            onImport={() => {}}
+            isAuthenticated={isAuthenticated}
+          />
+        )}
+        {activeTab === "Setup" && isAuthenticated && (
+          <SetupTab
+            leagues={leagues}
+            currentLeagueId={currentLeagueId}
+            seasons={seasons}
+            currentSeasonId={currentSeasonId}
+            session={session}
+            onRefresh={() => fetchData(undefined, undefined, true)}
+            onLeagueSelect={(id) => fetchData(id, undefined)}
+            onAddPlayers={handleAddPlayers}
+            allGlobalPlayers={allGlobalPlayers}
+            playersInCurrentLeague={players}
+            onAddExistingPlayer={handleAddExistingPlayer}
+          />
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
-      <Header />
+    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans selection:bg-indigo-500/30">
+      <Header
+        isAuthenticated={isAuthenticated}
+        userEmail={session?.user?.email}
+        onSignInClick={() => setShowLogin(true)}
+        leagues={leagues}
+        currentLeagueId={currentLeagueId}
+        onLeagueChange={(id) => fetchData(id, undefined)}
+        seasons={seasons}
+        currentSeasonId={currentSeasonId}
+        onSeasonChange={(id) => fetchData(undefined, id)}
+      />
       <main className="container mx-auto p-4 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6 flex justify-center border-b border-gray-700">
-            <TabButton
-              label="League"
-              isActive={activeTab === "League"}
-              onClick={() => setActiveTab("League")}
-            />
-            <TabButton
-              label="Players"
-              isActive={activeTab === "Players"}
-              onClick={() => setActiveTab("Players")}
-            />
-            <TabButton
-              label="History"
-              isActive={activeTab === "History"}
-              onClick={() => setActiveTab("History")}
-            />
+        {showLogin ? (
+          <Auth onCancel={() => setShowLogin(false)} />
+        ) : (
+          <div className="max-w-4xl mx-auto">
+            <div className="flex border-b border-gray-700/50 mb-8 overflow-x-auto whitespace-nowrap scrollbar-hide">
+              <TabButton
+                label="Žebříček"
+                isActive={activeTab === "Players"}
+                onClick={() => setActiveTab("Players")}
+              />
+              <TabButton
+                label="Výsledky"
+                isActive={activeTab === "History"}
+                onClick={() => setActiveTab("History")}
+              />
+              {isAuthenticated && (
+                <>
+                  <TabButton
+                    label="Správa kol"
+                    isActive={activeTab === "League"}
+                    onClick={() => setActiveTab("League")}
+                  />
+                  <TabButton
+                    label="Nastavení"
+                    isActive={activeTab === "Setup"}
+                    onClick={() => setActiveTab("Setup")}
+                  />
+                </>
+              )}
+            </div>
+            {renderContent()}
           </div>
-
-          <div>
-            {activeTab === "League" && (
-              <LeagueManager
-                allPlayers={players}
-                onRoundComplete={handleRoundComplete}
-              />
-            )}
-            {activeTab === "Players" && (
-              <PlayersTab
-                players={players}
-                roundHistory={roundHistory}
-                onAddPlayers={handleAddPlayers}
-                onRemovePlayer={handleRemovePlayer}
-                onUpdatePlayer={handleUpdatePlayer}
-              />
-            )}
-            {activeTab === "History" && (
-              <HistoryTab
-                roundHistory={roundHistory}
-                onImport={(history) => {
-                  setRoundHistory(history);
-                  if (history.length > 0) {
-                    setPlayers(history[0].playersAfter);
-                  }
-                }}
-              />
-            )}
-          </div>
-        </div>
+        )}
       </main>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

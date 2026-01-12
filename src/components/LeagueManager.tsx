@@ -11,6 +11,8 @@ import RankReviewModal from "./RankReviewModal";
 
 interface LeagueManagerProps {
   allPlayers: Player[];
+  presentPlayerIds: Set<string>;
+  setPresentPlayerIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onRoundComplete: (
     finalPlayers: Player[],
     newHistoryEntry: RoundHistoryEntry
@@ -21,11 +23,10 @@ type RankChange = "up" | "down";
 
 const LeagueManager: React.FC<LeagueManagerProps> = ({
   allPlayers,
+  presentPlayerIds,
+  setPresentPlayerIds,
   onRoundComplete,
 }) => {
-  const [presentPlayerIds, setPresentPlayerIds] = useState<Set<number>>(
-    new Set()
-  );
   const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [scores, setScores] = useState<
@@ -34,9 +35,9 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
     try {
       const savedScores = localStorage.getItem("leagueScores");
       if (savedScores) {
-        const parsed = JSON.parse(savedScores);
+        const parsed = JSON.parse(savedScores) as unknown;
         if (typeof parsed === "object" && parsed !== null) {
-          return parsed;
+          return parsed as Record<string, { score1: string; score2: string }>;
         }
       }
     } catch (error) {
@@ -45,7 +46,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
     return {};
   });
   const [rankChanges, setRankChanges] = useState<
-    Record<number, RankChange | null>
+    Record<string, RankChange | null>
   >({});
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [proposedPlayers, setProposedPlayers] = useState<Player[] | null>(null);
@@ -106,22 +107,34 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         ) {
           return false;
         }
+      } else if (group.length === 2) {
+        const matchId = `g${groupNumber}-m1`;
+        if (
+          !scores[matchId] ||
+          scores[matchId].score1 === "" ||
+          scores[matchId].score2 === ""
+        ) {
+          return false;
+        }
       }
     }
     return true;
   }, [groups, scores]);
 
-  const handlePlayerToggle = useCallback((playerId: number) => {
-    setPresentPlayerIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
-      } else {
-        newSet.add(playerId);
-      }
-      return newSet;
-    });
-  }, []);
+  const handlePlayerToggle = useCallback(
+    (playerId: string) => {
+      setPresentPlayerIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(playerId)) {
+          newSet.delete(playerId);
+        } else {
+          newSet.add(playerId);
+        }
+        return newSet;
+      });
+    },
+    [setPresentPlayerIds]
+  );
 
   const handleScoreUpdate = useCallback(
     (matchId: string, score1: string, score2: string) => {
@@ -143,7 +156,14 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       generateGroupsLogic(presentPlayers);
 
     if (genError) {
-      setError(genError);
+      setError(
+        genError === "Need at least 3 players to form a group."
+          ? "Pro vytvoření skupin je potřeba alespoň 3 hráčů."
+          : genError ===
+            "Cannot form groups with 5 players (groups must be 3 or 4)."
+          ? "Nelze vytvořit skupiny s 5 hráči (skupiny musí být po 3 nebo 4)."
+          : genError
+      );
       return;
     }
 
@@ -164,23 +184,6 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       groupPlacements
     );
 
-    const finalIdSet = new Set(newPlayerList.map((p) => p.id));
-    if (finalIdSet.size !== allPlayers.length) {
-      console.error("Error: Player count mismatch after update. Aborting.");
-      setError(
-        "A critical error occurred while calculating new ranks (player count mismatch). Please refresh."
-      );
-      return;
-    }
-    const finalRankSet = new Set(newPlayerList.map((p) => p.rank));
-    if (finalRankSet.size !== allPlayers.length) {
-      console.error("Error: Duplicate ranks detected after update. Aborting.");
-      setError(
-        "A critical error occurred while calculating new ranks (duplicate ranks). Please refresh."
-      );
-      return;
-    }
-
     setPlacementsForReview(groupPlacements);
     setProposedPlayers(newPlayerList);
     setIsReviewModalOpen(true);
@@ -194,24 +197,25 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         rank: i + 1,
       }));
 
-      // Recalculate placements for history record
       const groupPlacements = groups.map((group, index) =>
         resolveGroupPlacements(group, index + 1, scores)
       );
 
       const newHistoryEntry: RoundHistoryEntry = {
-        id: Date.now(),
-        date: new Date().toLocaleString(),
+        id: String(Date.now()),
+        date: new Date().toISOString(),
         groups: groups,
         scores: scores,
         finalPlacements: groupPlacements,
         playersBefore: playersBeforeRound,
         playersAfter: finalPlayersWithRanks,
+        present_players: Array.from(presentPlayerIds),
       };
+
       onRoundComplete(finalPlayersWithRanks, newHistoryEntry);
 
-      const changes: Record<number, RankChange> = {};
-      const oldPlayerRanks = new Map<number, number>(
+      const changes: Record<string, RankChange> = {};
+      const oldPlayerRanks = new Map<string, number>(
         playersBeforeRound.map((p) => [p.id, p.rank])
       );
       finalPlayersWithRanks.forEach((p) => {
@@ -225,7 +229,6 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
 
       setGroups([]);
       setScores({});
-      // setPresentPlayerIds(new Set());
       localStorage.removeItem("leagueScores");
       setIsReviewModalOpen(false);
       setProposedPlayers(null);
@@ -235,7 +238,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         setRankChanges({});
       }, 2500);
     },
-    [allPlayers, groups, scores, onRoundComplete]
+    [allPlayers, groups, scores, onRoundComplete, presentPlayerIds]
   );
 
   const handleCancelReview = useCallback(() => {
@@ -259,7 +262,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
 
       <div>
         <h2 className="text-2xl font-semibold text-indigo-400 text-center mb-4">
-          Select Players for this Round
+          Vyberte hráče pro toto kolo
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {allPlayers.map((player) => (
@@ -277,18 +280,18 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       <div className="text-center">
         <button
           onClick={generateGroups}
-          disabled={presentPlayers.length < 3}
+          disabled={presentPlayers.length < 2}
           className="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-300 shadow-lg transform hover:scale-105"
         >
-          Generate Groups ({presentPlayers.length} Selected)
+          Generovat skupiny ({presentPlayers.length} vybráno)
         </button>
-        {error && <p className="text-red-400 mt-4">{error}</p>}
+        {error && <p className="text-red-400 mt-4 font-medium">{error}</p>}
       </div>
 
       {groups.length > 0 && (
         <div>
           <h2 className="text-2xl font-semibold mb-6 text-center text-indigo-400">
-            Generated Groups
+            Vygenerované skupiny
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {groups.map((group, index) => (
@@ -307,7 +310,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
               disabled={!allMatchesScored}
               className="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-300 shadow-lg transform hover:scale-105"
             >
-              Finish Round & Update Ranks
+              Ukončit kolo a aktualizovat žebříček
             </button>
           </div>
         </div>

@@ -3,10 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sport League Organizer</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="theme-color" content="#4f46e5" />
+    <title>League Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
     <style>
       @keyframes rank-up-glow {
         0% {
@@ -36,11 +44,21 @@
       .animate-rank-down {
         animation: rank-down-glow 2.5s ease-out;
       }
+
+      /* Plynulé přechody mezi taby */
+      .tab-content-enter {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      .tab-content-enter-active {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 300ms, transform 300ms;
+      }
     </style>
-    <link rel="stylesheet" href="/index.css" />
   </head>
-  <body class="bg-gray-900 text-gray-100">
+  <body class="bg-gray-900 text-gray-100 overflow-x-hidden">
     <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
+    <script type="module" src="src/index.tsx"></script>
   </body>
 </html>

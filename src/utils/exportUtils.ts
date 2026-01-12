@@ -63,6 +63,9 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
       if (loser1 && loser2) {
         formatMatch(loser1.name, loser2.name, scores[`g${groupNumber}-r2-m2`]);
       }
+    } else if (group.length === 2) {
+      const [p1, p2] = group;
+      formatMatch(p1.name, p2.name, scores[`g${groupNumber}-m1`]);
     }
   });
   return matchStrings.join("<br>");
@@ -77,7 +80,7 @@ export const generateXLSContent = (
   if (sortedRounds.length === 0) return "";
 
   // 1. Get a master map of all players across all selected rounds.
-  const allPlayersMap = new Map<number, Player>();
+  const allPlayersMap = new Map<string, Player>();
   sortedRounds.forEach((r) => {
     r.playersBefore.forEach((p) => {
       if (!allPlayersMap.has(p.id)) allPlayersMap.set(p.id, p);
