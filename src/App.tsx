@@ -15,12 +15,14 @@ import type {
   DBRound,
   DBPlayer,
   DBMatch,
+  DBEvent,
 } from "./types";
 import LeagueManager from "./components/LeagueManager";
 import Header from "./components/Header";
 import PlayersTab from "./components/PlayersTab";
 import HistoryTab from "./components/HistoryTab";
 import SetupTab from "./components/SetupTab";
+import EventsTab from "./components/EventsTab";
 import TabButton from "./components/TabButton";
 import Auth from "./components/Auth";
 import Toast, { ToastType } from "./components/Toast";
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [allGlobalPlayers, setAllGlobalPlayers] = useState<DBPlayer[]>([]);
   const [roundHistory, setRoundHistory] = useState<RoundHistoryEntry[]>([]);
+  const [events, setEvents] = useState<DBEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -142,7 +145,6 @@ const App: React.FC = () => {
         const base = await loadBaseData(leagueId, forceRefreshLeagues);
         setSeasons(base.seasons);
 
-        // Also fetch all global players for the setup tab
         await fetchGlobalPlayers();
 
         let sid = seasonId || currentSeasonId;
@@ -155,6 +157,16 @@ const App: React.FC = () => {
         setCurrentSeasonId(sid);
 
         if (base.leagueId) {
+          // Fetch Events
+          const { data: eventsData, error: eventsErr } = await supabase
+            .from("events")
+            .select("*")
+            .eq("league_id", base.leagueId)
+            .order("pinned", { ascending: false })
+            .order("created_at", { ascending: false });
+
+          if (!eventsErr) setEvents(eventsData as DBEvent[]);
+
           const { data: pilData, error: pilErr } = await supabase
             .from("players_in_leagues")
             .select("id, rank, player_id, players(id, first_name, last_name)")
@@ -518,6 +530,65 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateEvent = async (
+    title: string,
+    content: string,
+    pinned: boolean
+  ) => {
+    if (!isAuthenticated || !currentLeagueId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("events").insert({
+        title,
+        content,
+        pinned,
+        league_id: currentLeagueId,
+      });
+      if (error) throw error;
+      showToast("Událost byla úspěšně vytvořena.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err))
+        showToast("Chyba při vytváření události.", "error");
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!isAuthenticated) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error } = await supabase.from("events").delete().eq("id", id);
+      if (error) throw error;
+      showToast("Událost byla smazána.");
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err))
+        showToast("Chyba při mazání události.", "error");
+    }
+  };
+
+  const handleToggleEventPin = async (id: string, currentPinned: boolean) => {
+    if (!isAuthenticated) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ pinned: !currentPinned })
+        .eq("id", id);
+      if (error) throw error;
+      showToast(
+        currentPinned ? "Událost byla odepnuta." : "Událost byla připnuta."
+      );
+      fetchData();
+    } catch (err: unknown) {
+      if (!handleSecurityError(err))
+        showToast("Chyba při změně připnutí.", "error");
+    }
+  };
+
   const renderContent = () => {
     if (isLoading)
       return (
@@ -561,7 +632,16 @@ const App: React.FC = () => {
       );
 
     return (
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="tab-content-enter-active">
+        {activeTab === "Events" && (
+          <EventsTab
+            events={events}
+            isAuthenticated={isAuthenticated}
+            onAddEvent={handleCreateEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onTogglePin={handleToggleEventPin}
+          />
+        )}
         {activeTab === "League" && isAuthenticated && (
           <LeagueManager
             allPlayers={players}
@@ -631,6 +711,11 @@ const App: React.FC = () => {
                 label="Žebříček"
                 isActive={activeTab === "Players"}
                 onClick={() => setActiveTab("Players")}
+              />
+              <TabButton
+                label="Události"
+                isActive={activeTab === "Events"}
+                onClick={() => setActiveTab("Events")}
               />
               <TabButton
                 label="Výsledky"

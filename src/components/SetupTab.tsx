@@ -140,9 +140,6 @@ const SetupTab: React.FC<SetupTabProps> = ({
       });
   }, [allGlobalPlayers, playersInCurrentLeague, playerSearchQuery]);
 
-  const sqlFix =
-    `-- Spusťte toto v SQL editoru Supabase pro opravu chyb RLS...`.trim();
-
   return (
     <div className="space-y-12 pb-12">
       <ConfirmModal

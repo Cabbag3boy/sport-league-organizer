@@ -82,3 +82,12 @@ export interface DBMatch {
   player_two_score: number;
   created_at?: string;
 }
+
+export interface DBEvent {
+  id: string;
+  created_at: string;
+  title: string | null;
+  content: string | null;
+  pinned: boolean | null;
+  league_id: string;
+}
