@@ -5,6 +5,7 @@ interface RoundHistoryCardProps {
   entry: RoundHistoryEntry;
   isSelected: boolean;
   onToggleSelection: (id: string) => void;
+  roundNumber: number;
 }
 
 const RankChangeDisplay: React.FC<{
@@ -74,6 +75,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
   entry,
   isSelected,
   onToggleSelection,
+  roundNumber,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -240,10 +242,11 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
             className="h-5 w-5 rounded bg-gray-600 border-gray-500 text-indigo-500 focus:ring-indigo-600 cursor-pointer"
             aria-label={`Vybrat kolo ze dne ${new Date(
               entry.date
-            ).toLocaleString("cs-CZ")}`}
+            ).toLocaleDateString("cs-CZ")}`}
           />
           <span className="font-semibold text-indigo-400">
-            Kolo ze dne {new Date(entry.date).toLocaleString("cs-CZ")}
+            {roundNumber}. Kolo přidáno dne{" "}
+            {new Date(entry.date).toLocaleDateString("cs-CZ")}
           </span>
         </div>
         <svg

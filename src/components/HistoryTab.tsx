@@ -107,10 +107,11 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
       </div>
       {roundHistory.length > 0 ? (
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          {roundHistory.map((entry) => (
+          {roundHistory.map((entry, index) => (
             <RoundHistoryCard
               key={entry.id}
               entry={entry}
+              roundNumber={roundHistory.length - index}
               isSelected={selectedRoundIds.has(entry.id)}
               onToggleSelection={handleToggleSelection}
             />
