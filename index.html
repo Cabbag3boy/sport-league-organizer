@@ -14,48 +14,7 @@
     />
     <meta name="theme-color" content="#4f46e5" />
     <title>League Master</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      @keyframes rank-up-glow {
-        0% {
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-        }
-        50% {
-          box-shadow: 0 0 15px 5px rgba(34, 197, 94, 0.4);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
-        }
-      }
-      @keyframes rank-down-glow {
-        0% {
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-        }
-        50% {
-          box-shadow: 0 0 15px 5px rgba(239, 68, 68, 0.4);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-        }
-      }
-      .animate-rank-up {
-        animation: rank-up-glow 2.5s ease-out;
-      }
-      .animate-rank-down {
-        animation: rank-down-glow 2.5s ease-out;
-      }
-
-      /* Plynulé přechody mezi taby */
-      .tab-content-enter {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      .tab-content-enter-active {
-        opacity: 1;
-        transform: translateY(0);
-        transition: opacity 300ms, transform 300ms;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="bg-gray-900 text-gray-100 overflow-x-hidden">
     <div id="root"></div>
