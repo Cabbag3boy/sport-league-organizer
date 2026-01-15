@@ -56,7 +56,9 @@ const PlayersTab: React.FC<PlayersTabProps> = ({
                 <th className="p-4 w-20 text-center">Výhry</th>
                 <th className="p-4 w-20 text-center">Prohry</th>
                 <th className="p-4 w-24 text-center">Zápasy</th>
-                <th className="p-4 w-28 text-center">Série</th>
+                <th className="p-4 w-28 text-center" colSpan="2">
+                  Série
+                </th>
                 {isAuthenticated && (
                   <th className="p-4 w-24 text-center">Akce</th>
                 )}
@@ -83,6 +85,7 @@ const PlayersTab: React.FC<PlayersTabProps> = ({
                   onUpdate={onUpdatePlayer}
                   onRemove={(id) => isAuthenticated && setPlayerIdToRemove(id)}
                   isAuthenticated={isAuthenticated}
+                  totalPlayersInLeague={players.length}
                 />
               ))}
             </tbody>

@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type {
   Player,
@@ -28,6 +22,7 @@ import Auth from "./components/Auth";
 import Toast, { ToastType } from "./components/Toast";
 import { getSupabase } from "./utils/supabase";
 import { calculateStandings } from "./utils/statsUtils";
+import { reorderPlayerRanks } from "./utils/leagueUtils";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -364,6 +359,7 @@ const App: React.FC = () => {
     const supabase = getSupabase();
     if (!supabase) return;
     try {
+      // Update player name fields
       await supabase
         .from("players")
         .update({
@@ -372,13 +368,30 @@ const App: React.FC = () => {
         })
         .eq("id", updatedPlayer.id);
 
-      await supabase
+      // Reorder ranks if rank changed
+      const { reorderedPlayers, error: reorderError } = reorderPlayerRanks(
+        players,
+        updatedPlayer.id,
+        updatedPlayer.rank
+      );
+
+      if (reorderError) {
+        showToast(reorderError, "error");
+        return;
+      }
+
+      // Batch upsert all updated ranks to maintain sequential order
+      const rankUpdates = reorderedPlayers.map((player) => ({
+        player_id: player.id,
+        league_id: currentLeagueId,
+        rank: player.rank,
+      }));
+
+      const { error: upsertError } = await supabase
         .from("players_in_leagues")
-        .update({
-          rank: updatedPlayer.rank,
-        })
-        .eq("player_id", updatedPlayer.id)
-        .eq("league_id", currentLeagueId);
+        .upsert(rankUpdates, { onConflict: "league_id,player_id" });
+
+      if (upsertError) throw upsertError;
 
       showToast("Hráč byl aktualizován.");
       fetchData();

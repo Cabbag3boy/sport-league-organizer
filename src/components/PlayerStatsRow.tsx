@@ -8,6 +8,7 @@ interface PlayerStatsRowProps {
   onUpdate: (player: Player) => void;
   onRemove: (id: string) => void;
   isAuthenticated: boolean;
+  totalPlayersInLeague?: number;
 }
 
 const PlayerStatsRow: React.FC<PlayerStatsRowProps> = ({
@@ -17,11 +18,25 @@ const PlayerStatsRow: React.FC<PlayerStatsRowProps> = ({
   onUpdate,
   onRemove,
   isAuthenticated,
+  totalPlayersInLeague = 999,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [firstName, setFirstName] = useState(player.first_name);
   const [lastName, setLastName] = useState(player.last_name);
   const [editedRank, setEditedRank] = useState<string | number>(player.rank);
+  const [rankError, setRankError] = useState<string | null>(null);
+
+  const handleRankChange = (value: string) => {
+    setEditedRank(value);
+    const rankNum = Number(value);
+    if (rankNum < 1 || rankNum > totalPlayersInLeague) {
+      setRankError(
+        `Pořadí musí být mezi 1 a ${totalPlayersInLeague}.`
+      );
+    } else {
+      setRankError(null);
+    }
+  };
 
   const handleSaveClick = () => {
     if (!isAuthenticated) return;
@@ -30,7 +45,9 @@ const PlayerStatsRow: React.FC<PlayerStatsRowProps> = ({
       firstName.trim() &&
       lastName.trim() &&
       !isNaN(rankAsNumber) &&
-      rankAsNumber > 0
+      rankAsNumber > 0 &&
+      rankAsNumber <= totalPlayersInLeague &&
+      !rankError
     ) {
       onUpdate({
         ...player,
@@ -55,13 +72,24 @@ const PlayerStatsRow: React.FC<PlayerStatsRowProps> = ({
     return (
       <tr className="border-b border-gray-700/50 bg-gray-800">
         <td className="p-3 text-center">
-          <input
-            type="number"
-            value={editedRank}
-            onChange={(e) => setEditedRank(e.target.value)}
-            className="w-16 bg-gray-900 text-indigo-400 rounded-md p-1 text-center font-bold"
-            aria-label="Upravit pořadí"
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="number"
+              value={editedRank}
+              onChange={(e) => handleRankChange(e.target.value)}
+              max={totalPlayersInLeague}
+              min={1}
+              className={`w-16 bg-gray-900 text-indigo-400 rounded-md p-1 text-center font-bold ${
+                rankError ? "border-2 border-red-500" : ""
+              }`}
+              aria-label="Upravit pořadí"
+            />
+            {rankError && (
+              <span className="text-xs text-red-400 whitespace-nowrap">
+                {rankError}
+              </span>
+            )}
+          </div>
         </td>
         <td className="p-3">
           <div className="flex gap-2">
@@ -119,7 +147,8 @@ const PlayerStatsRow: React.FC<PlayerStatsRowProps> = ({
             </button>
             <button
               onClick={handleSaveClick}
-              className="text-green-400 hover:text-green-300"
+              disabled={rankError !== null}
+              className="text-green-400 hover:text-green-300 disabled:text-gray-600 disabled:cursor-not-allowed"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

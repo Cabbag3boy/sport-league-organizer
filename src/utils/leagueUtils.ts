@@ -245,3 +245,73 @@ export const calculateNewRanks = (
     rank: index + 1,
   }));
 };
+
+/**
+ * Reorders players in a league to prevent duplicate ranks.
+ * When a player's rank is updated, this function shifts other players accordingly
+ * and ensures all ranks are sequential from 1 to N.
+ *
+ * @param players - Current list of players with their ranks
+ * @param updatedPlayerId - ID of the player whose rank was changed
+ * @param newRank - The new rank requested for the player
+ * @returns Object with { reorderedPlayers, error }
+ */
+export const reorderPlayerRanks = (
+  players: Player[],
+  updatedPlayerId: string,
+  newRank: number
+): { reorderedPlayers: Player[]; error: string | null } => {
+  // Validate rank bounds
+  if (newRank < 1 || newRank > players.length) {
+    return {
+      reorderedPlayers: [],
+      error: `Pořadí musí být mezi 1 a ${players.length}.`,
+    };
+  }
+
+  // Find the player being updated
+  const playerToMove = players.find((p) => p.id === updatedPlayerId);
+  if (!playerToMove) {
+    return {
+      reorderedPlayers: [],
+      error: "Hráč nenalezen.",
+    };
+  }
+
+  const oldRank = playerToMove.rank;
+
+  // If rank hasn't changed, return as-is
+  if (oldRank === newRank) {
+    return { reorderedPlayers: players, error: null };
+  }
+
+  // Create a working copy without the moved player
+  const otherPlayers = players.filter((p) => p.id !== updatedPlayerId);
+
+  // Rebuild the list with the moved player in the new position
+  const reordered: Player[] = [];
+
+  for (let i = 0; i < otherPlayers.length; i++) {
+    if (i === newRank - 1) {
+      // Insert the moved player at the new rank position
+      reordered.push({ ...playerToMove, rank: newRank });
+    }
+
+    // Add other players, adjusting their ranks
+    const targetRank = reordered.length + 1;
+    reordered.push({ ...otherPlayers[i], rank: targetRank });
+  }
+
+  // If newRank is beyond current players, append at the end
+  if (newRank > reordered.length) {
+    reordered.push({ ...playerToMove, rank: newRank });
+  }
+
+  // Final pass: ensure all ranks are sequential 1 to N
+  const finalReordered = reordered.map((player, index) => ({
+    ...player,
+    rank: index + 1,
+  }));
+
+  return { reorderedPlayers: finalReordered, error: null };
+};
