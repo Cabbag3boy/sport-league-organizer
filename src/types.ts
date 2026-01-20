@@ -91,3 +91,112 @@ export interface DBEvent {
   pinned: boolean | null;
   league_id: string;
 }
+
+/**
+ * Service DTOs (Input/Output Types)
+ */
+
+// Player Service DTOs
+export interface AddPlayerInput {
+  leagueId: string;
+  playerName: string;
+  selectedRole?: string;
+  globalPlayerId?: string;
+}
+
+export interface AddExistingPlayerInput {
+  leagueId: string;
+  playerId: string;
+}
+
+export interface RemovePlayerInput {
+  leagueId: string;
+  playerId: string;
+}
+
+export interface UpdatePlayerInput {
+  id: string;
+  first_name: string;
+  last_name: string;
+  rank: number;
+  leagueId: string;
+}
+
+export interface FetchPlayersInLeagueInput {
+  leagueId: string;
+}
+
+export interface FetchPlayersInLeagueOutput {
+  players: Player[];
+  error?: string;
+}
+
+// League Service DTOs
+export interface FetchLeaguesInput {}
+
+export interface FetchLeaguesOutput {
+  leagues: DBLeague[];
+}
+
+export interface FetchSeasonsInput {
+  leagueId: string;
+}
+
+export interface FetchSeasonsOutput {
+  seasons: DBSeason[];
+}
+
+export interface FetchBaseDataInput {
+  leagueId?: string;
+  forceRefreshLeagues?: boolean;
+}
+
+export interface FetchBaseDataOutput {
+  leagueId: string | null;
+  seasons: DBSeason[];
+}
+
+// Event Service DTOs
+export interface CreateEventInput {
+  leagueId: string;
+  title: string;
+  content: string;
+  pinned: boolean;
+}
+
+export interface DeleteEventInput {
+  eventId: string;
+}
+
+export interface ToggleEventPinInput {
+  eventId: string;
+  currentPinned: boolean;
+}
+
+export interface FetchEventsInput {
+  leagueId: string;
+}
+
+export interface FetchEventsOutput {
+  events: DBEvent[];
+}
+
+// Round Service DTOs
+export interface CompleteRoundInput {
+  leagueId: string;
+  seasonId: string;
+  finalPlayers: Player[];
+  entry: RoundHistoryEntry;
+}
+
+export interface CompleteRoundOutput {
+  roundId: string;
+  matchesInserted: number;
+  playersUpdated: number;
+}
+
+// Global Players Service DTO
+export interface FetchGlobalPlayersOutput {
+  players: DBPlayer[];
+}
+

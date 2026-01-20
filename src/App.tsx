@@ -1,286 +1,173 @@
-import React, { useState, useEffect, useCallback } from "react";
-import type { Session } from "@supabase/supabase-js";
-import type {
-  Player,
-  RoundHistoryEntry,
-  DBLeague,
-  DBSeason,
-  DBPlayerInLeague,
-  DBRound,
-  DBPlayer,
-  DBMatch,
-  DBEvent,
-} from "./types";
-import LeagueManager from "./components/LeagueManager";
-import Header from "./components/Header";
-import PlayersTab from "./components/PlayersTab";
-import HistoryTab from "./components/HistoryTab";
-import SetupTab from "./components/SetupTab";
-import EventsTab from "./components/EventsTab";
-import TabButton from "./components/TabButton";
-import Auth from "./components/Auth";
-import Toast, { ToastType } from "./components/Toast";
-import { getSupabase } from "./utils/supabase";
-import { calculateStandings } from "./utils/statsUtils";
-import { reorderPlayerRanks } from "./utils/leagueUtils";
+import React, { useState, useEffect } from "react";
+import type { Player, RoundHistoryEntry, DBPlayer, DBEvent } from "@/types";
+import { LeagueManager } from "@/features/league/components";
+import { Header, SetupTab } from "@/features/layout/components";
+import { PlayersTab } from "@/features/players/components";
+import { HistoryTab } from "@/features/rounds/components";
+import { EventsTab } from "@/features/events/components";
+import TabButton from "@/components/shared/TabButton";
+import { Auth } from "@/features/auth/components";
+import Toast from "@/components/shared/Toast";
+import { ErrorBoundary } from "@/components/error";
+import { useAuthStore } from "@/stores";
+import { useLeagueStore } from "@/stores";
+import { getSupabase } from "@/utils/supabase";
+import { calculateStandings } from "@/utils/shared/statsUtils";
+import { initializeCsrfToken } from "@/features/auth/utils";
+import { useCsrfHandler } from "@/features/auth/hooks";
+import { useNotification } from "@/hooks/useNotification";
+import { useLeagueDataFetch } from "@/hooks/useLeagueDataFetch";
+import { usePlayerData } from "@/features/players/hooks";
+import * as eventService from "@/features/events/services";
+import * as roundService from "@/features/rounds/services";
 
-const App: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
+const AppContent: React.FC = () => {
+  const session = useAuthStore((state) => state.session);
+  const setLeagues = useLeagueStore((state) => state.setLeagues);
+  const currentLeagueId = useLeagueStore((state) => state.currentLeagueId);
+  const setCurrentLeagueId = useLeagueStore(
+    (state) => state.setCurrentLeagueId
+  );
+  const setSeasons = useLeagueStore((state) => state.setSeasons);
+  const currentSeasonId = useLeagueStore((state) => state.currentSeasonId);
+  const setCurrentSeasonId = useLeagueStore(
+    (state) => state.setCurrentSeasonId
+  );
+  const { toast, showToast, clearToast, handleSecurityError } =
+    useNotification();
+  const { executeWithCsrf } = useCsrfHandler();
+  const { fetchCompleteData } = useLeagueDataFetch();
+  const { addPlayer, addExistingPlayer, removePlayer, updatePlayer } =
+    usePlayerData();
+
   const [activeTab, setActiveTab] = useState<string>("Players");
   const [showLogin, setShowLogin] = useState<boolean>(false);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [players, setPlayers] = useState<DBPlayer[]>([]);
   const [allGlobalPlayers, setAllGlobalPlayers] = useState<DBPlayer[]>([]);
   const [roundHistory, setRoundHistory] = useState<RoundHistoryEntry[]>([]);
   const [events, setEvents] = useState<DBEvent[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dbError, setDbError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    message: string;
-    type: ToastType;
-  } | null>(null);
-
-  const [leagues, setLeagues] = useState<DBLeague[]>([]);
-  const [currentLeagueId, setCurrentLeagueId] = useState<string | null>(null);
-  const [seasons, setSeasons] = useState<DBSeason[]>([]);
-  const [currentSeasonId, setCurrentSeasonId] = useState<string | null>(null);
-
   const [presentPlayerIds, setPresentPlayerIds] = useState<Set<string>>(
     new Set()
   );
 
   const isAuthenticated = !!session;
+  const supabase = getSupabase();
 
-  const showToast = (message: string, type: ToastType = "success") => {
-    setToast({ message, type });
+  // Event and Round service wrappers
+  const createEvent = (
+    leagueId: string,
+    title: string,
+    content: string,
+    pinned: boolean
+  ) => eventService.createEvent({ leagueId, title, content, pinned });
+
+  const deleteEvent = (eventId: string) =>
+    eventService.deleteEvent({ eventId });
+
+  const toggleEventPin = (eventId: string, currentPinned: boolean) =>
+    eventService.toggleEventPin({ eventId, currentPinned });
+
+  const completeRound = (
+    leagueId: string,
+    seasonId: string,
+    finalPlayers: Player[],
+    entry: RoundHistoryEntry
+  ) =>
+    roundService.completeRound({
+      leagueId,
+      seasonId,
+      finalPlayers,
+      entry,
+    });
+
+  const fetchData = async (
+    leagueId?: string,
+    seasonId?: string,
+    forceRefreshLeagues = false
+  ) => {
+    setIsLoading(true);
+    setDbError(null);
+
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const data = await fetchCompleteData(
+        leagueId,
+        seasonId,
+        forceRefreshLeagues
+      );
+
+      setLeagues(data.leagues);
+      setSeasons(data.seasons);
+      setAllGlobalPlayers(data.globalPlayers);
+      setPlayers(data.players);
+      setEvents(data.events);
+      setRoundHistory(data.roundHistory);
+      setCurrentLeagueId(data.selectedLeagueId);
+      setCurrentSeasonId(data.selectedSeasonId);
+
+      if (leagueId && leagueId !== currentLeagueId) {
+        setPresentPlayerIds(new Set());
+      }
+    } catch (err: unknown) {
+      if (handleSecurityError(err)) {
+        setShowLogin(true);
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        setDbError(msg || "Nepodařilo se načíst data.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSecurityError = useCallback((error: any) => {
-    if (
-      error?.message?.includes("JWT") ||
-      error?.status === 401 ||
-      error?.status === 403
-    ) {
-      setDbError("Vaše relace vypršela nebo nemáte dostatečná oprávnění.");
-      setSession(null);
-      setShowLogin(true);
-      return true;
-    }
-    return false;
-  }, []);
-
-  const loadBaseData = useCallback(
-    async (leagueId?: string, forceRefreshLeagues = false) => {
-      const supabase = getSupabase();
-      if (!supabase)
-        throw new Error("Připojení k databázi není nakonfigurováno.");
-
-      let activeLeagues = leagues;
-      if (activeLeagues.length === 0 || forceRefreshLeagues) {
-        const { data, error } = await supabase
-          .from("leagues")
-          .select("*")
-          .order("name");
-        if (error) {
-          handleSecurityError(error);
-          throw error;
-        }
-        activeLeagues = (data as DBLeague[]) || [];
-        setLeagues(activeLeagues);
-      }
-
-      const lid =
-        leagueId ||
-        currentLeagueId ||
-        (activeLeagues.length > 0 ? activeLeagues[0].id : null);
-      if (!lid) return { leagueId: null, seasons: [] };
-      if (!currentLeagueId || currentLeagueId !== lid) setCurrentLeagueId(lid);
-
-      const { data: seasonsData, error: sErr } = await supabase
-        .from("seasons")
-        .select("*")
-        .eq("league_id", lid)
-        .order("created_at", { ascending: false });
-      if (sErr) {
-        handleSecurityError(sErr);
-        throw sErr;
-      }
-
-      return { leagueId: lid, seasons: (seasonsData as DBSeason[]) || [] };
-    },
-    [leagues, currentLeagueId, handleSecurityError]
-  );
-
-  const fetchGlobalPlayers = useCallback(async () => {
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from("players")
-      .select("*")
-      .order("last_name", { ascending: true });
-    if (!error && data) {
-      setAllGlobalPlayers(data as DBPlayer[]);
-    }
-  }, []);
-
-  const fetchData = useCallback(
-    async (
-      leagueId?: string,
-      seasonId?: string,
-      forceRefreshLeagues = false
-    ) => {
-      setIsLoading(true);
-      setDbError(null);
-      const supabase = getSupabase();
-      if (!supabase) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const base = await loadBaseData(leagueId, forceRefreshLeagues);
-        setSeasons(base.seasons);
-
-        await fetchGlobalPlayers();
-
-        let sid = seasonId || currentSeasonId;
-        if (leagueId && leagueId !== currentLeagueId) {
-          sid = base.seasons.length > 0 ? base.seasons[0].id : null;
-          setPresentPlayerIds(new Set());
-        } else if (!sid || !base.seasons.find((s) => s.id === sid)) {
-          sid = base.seasons.length > 0 ? base.seasons[0].id : null;
-        }
-        setCurrentSeasonId(sid);
-
-        if (base.leagueId) {
-          // Fetch Events
-          const { data: eventsData, error: eventsErr } = await supabase
-            .from("events")
-            .select("*")
-            .eq("league_id", base.leagueId)
-            .order("pinned", { ascending: false })
-            .order("created_at", { ascending: false });
-
-          if (!eventsErr) setEvents(eventsData as DBEvent[]);
-
-          const { data: pilData, error: pilErr } = await supabase
-            .from("players_in_leagues")
-            .select("id, rank, player_id, players(id, first_name, last_name)")
-            .eq("league_id", base.leagueId)
-            .order("rank", { ascending: true });
-
-          if (pilErr) {
-            handleSecurityError(pilErr);
-            throw pilErr;
-          }
-
-          setPlayers(
-            ((pilData as unknown as DBPlayerInLeague[]) || []).map((row) => ({
-              id: row.players!.id,
-              first_name: row.players!.first_name,
-              last_name: row.players!.last_name,
-              name: `${row.players!.first_name} ${
-                row.players!.last_name
-              }`.trim(),
-              rank: row.rank,
-            }))
-          );
-
-          if (sid) {
-            const { data: roundsData, error: rErr } = await supabase
-              .from("rounds")
-              .select("*")
-              .eq("season_id", sid)
-              .order("created_at", { ascending: false });
-            if (rErr) throw rErr;
-
-            setRoundHistory(
-              ((roundsData as unknown as DBRound[]) || []).map((r) => ({
-                id: r.id,
-                date: r.created_at,
-                groups: r.details?.groups || [],
-                scores: r.details?.scores || {},
-                finalPlacements: r.details?.finalPlacements || [],
-                playersBefore: r.details?.playersBefore || [],
-                playersAfter: r.details?.playersAfter || [],
-                present_players: r.present_players || [],
-              }))
-            );
-          } else {
-            setRoundHistory([]);
-          }
-        }
-      } catch (err: unknown) {
-        if (!handleSecurityError(err)) {
-          const msg = err instanceof Error ? err.message : String(err);
-          setDbError(msg || "Nepodařilo se načíst data.");
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      currentLeagueId,
-      currentSeasonId,
-      loadBaseData,
-      handleSecurityError,
-      fetchGlobalPlayers,
-    ]
-  );
-
   useEffect(() => {
-    const supabase = getSupabase();
+    initializeCsrfToken();
+
     if (!supabase) return;
+
     fetchData();
 
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: currentSession } }) =>
-        setSession(currentSession)
-      );
+    supabase.auth.getSession();
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession);
+      useAuthStore.setState({ session: currentSession });
       if (currentSession) {
         setShowLogin(false);
         setDbError(null);
         showToast("Přihlášení proběhlo úspěšně.");
       }
     });
+
     return () => subscription.unsubscribe();
-  }, [fetchData]);
+  }, []);
 
   const handleAddPlayers = async (names: string[]) => {
     if (!isAuthenticated || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
 
     try {
-      for (const fullName of names) {
-        const parts = fullName.trim().split(" ");
-        const firstName = parts[0];
-        const lastName = parts.slice(1).join(" ") || "-";
-
-        const { data: pData, error: pErr } = await supabase
-          .from("players")
-          .insert({ first_name: firstName, last_name: lastName })
-          .select()
-          .single();
-        if (pErr) throw pErr;
-
-        const insertedPlayer = pData as DBPlayer;
-
-        const { error: pilErr } = await supabase
-          .from("players_in_leagues")
-          .insert({
-            league_id: currentLeagueId,
-            player_id: insertedPlayer.id,
-            rank: players.length + 1,
-          });
-        if (pilErr) throw pilErr;
-      }
-      showToast(`${names.length} hráč(ů) byl úspěšně přidán.`);
-      fetchData();
+      await executeWithCsrf(async () => {
+        const newPlayers: Player[] = [];
+        for (const fullName of names) {
+          try {
+            const newPlayer = await addPlayer(currentLeagueId, fullName);
+            newPlayers.push(newPlayer);
+          } catch (err) {
+            handleSecurityError(err);
+            throw err;
+          }
+        }
+        setPlayers((prev) => [...prev, ...newPlayers]);
+        showToast(`${names.length} hráč(ů) byl úspěšně přidán.`);
+        await fetchData();
+      });
     } catch (err: unknown) {
       if (!handleSecurityError(err)) {
         showToast("Chyba při přidávání hráčů.", "error");
@@ -290,21 +177,14 @@ const App: React.FC = () => {
 
   const handleAddExistingPlayer = async (playerId: string) => {
     if (!isAuthenticated || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
 
     try {
-      const { error: pilErr } = await supabase
-        .from("players_in_leagues")
-        .insert({
-          league_id: currentLeagueId,
-          player_id: playerId,
-          rank: players.length + 1,
-        });
-      if (pilErr) throw pilErr;
-
-      showToast("Hráč byl úspěšně přidán do ligy.");
-      fetchData();
+      await executeWithCsrf(async () => {
+        const newPlayer = await addExistingPlayer(currentLeagueId, playerId);
+        setPlayers((prev) => [...prev, newPlayer]);
+        showToast("Hráč byl úspěšně přidán do ligy.");
+        await fetchData();
+      });
     } catch (err: unknown) {
       if (!handleSecurityError(err)) {
         showToast("Chyba při přidávání hráče.", "error");
@@ -314,39 +194,19 @@ const App: React.FC = () => {
 
   const handleRemovePlayer = async (playerId: string) => {
     if (!isAuthenticated || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
+
     try {
-      const { error: deleteLinkError } = await supabase
-        .from("players_in_leagues")
-        .delete()
-        .eq("player_id", playerId)
-        .eq("league_id", currentLeagueId);
-
-      if (deleteLinkError) throw deleteLinkError;
-
-      const { data: otherLeagues, error: checkError } = await supabase
-        .from("players_in_leagues")
-        .select("id")
-        .eq("player_id", playerId);
-
-      if (checkError) throw checkError;
-
-      if (!otherLeagues || otherLeagues.length === 0) {
-        const { error: deletePlayerError } = await supabase
-          .from("players")
-          .delete()
-          .eq("id", playerId);
-        if (deletePlayerError) throw deletePlayerError;
-      }
-
-      setPresentPlayerIds((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(playerId);
-        return newSet;
+      await executeWithCsrf(async () => {
+        await removePlayer(currentLeagueId, playerId);
+        setPresentPlayerIds((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(playerId);
+          return newSet;
+        });
+        setPlayers((prev) => prev.filter((p) => p.id !== playerId));
+        showToast("Hráč byl odebrán z aktuální ligy.");
+        await fetchData();
       });
-      showToast("Hráč byl odebrán z aktuální ligy.");
-      fetchData();
     } catch (err: unknown) {
       if (!handleSecurityError(err)) {
         showToast("Chyba při odebírání hráče.", "error");
@@ -356,45 +216,16 @@ const App: React.FC = () => {
 
   const handleUpdatePlayer = async (updatedPlayer: Player) => {
     if (!isAuthenticated || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
+
     try {
-      // Update player name fields
-      await supabase
-        .from("players")
-        .update({
-          first_name: updatedPlayer.first_name,
-          last_name: updatedPlayer.last_name,
-        })
-        .eq("id", updatedPlayer.id);
-
-      // Reorder ranks if rank changed
-      const { reorderedPlayers, error: reorderError } = reorderPlayerRanks(
-        players,
-        updatedPlayer.id,
-        updatedPlayer.rank
-      );
-
-      if (reorderError) {
-        showToast(reorderError, "error");
-        return;
-      }
-
-      // Batch upsert all updated ranks to maintain sequential order
-      const rankUpdates = reorderedPlayers.map((player) => ({
-        player_id: player.id,
-        league_id: currentLeagueId,
-        rank: player.rank,
-      }));
-
-      const { error: upsertError } = await supabase
-        .from("players_in_leagues")
-        .upsert(rankUpdates, { onConflict: "league_id,player_id" });
-
-      if (upsertError) throw upsertError;
-
-      showToast("Hráč byl aktualizován.");
-      fetchData();
+      await executeWithCsrf(async () => {
+        const updated = await updatePlayer(currentLeagueId, updatedPlayer);
+        setPlayers((prev) =>
+          prev.map((p) => (p.id === updated.id ? updated : p))
+        );
+        showToast("Hráč byl aktualizován.");
+        await fetchData();
+      });
     } catch (err: unknown) {
       if (!handleSecurityError(err)) {
         showToast("Chyba při aktualizaci hráče.", "error");
@@ -407,135 +238,18 @@ const App: React.FC = () => {
     entry: RoundHistoryEntry
   ) => {
     if (!isAuthenticated || !currentSeasonId || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
 
     try {
-      const presentIds = finalPlayers
-        .filter((p) => entry.present_players?.includes(p.id))
-        .map((p) => p.id);
-
-      const { data: roundDataRaw, error: roundErr } = await supabase
-        .from("rounds")
-        .insert({
-          season_id: currentSeasonId,
-          present_players: presentIds,
-          details: {
-            groups: entry.groups,
-            scores: entry.scores,
-            finalPlacements: entry.finalPlacements,
-            playersBefore: entry.playersBefore,
-            playersAfter: entry.playersAfter,
-          },
-        })
-        .select()
-        .single();
-
-      if (roundErr) throw roundErr;
-      const roundData = roundDataRaw as DBRound;
-
-      const matchesToInsert: DBMatch[] = [];
-      entry.groups.forEach((group, idx) => {
-        const gNum = idx + 1;
-        const scores = entry.scores;
-        if (group.length === 4) {
-          const [p1, p2, p3, p4] = group;
-          const m1 = scores[`g${gNum}-r1-m1`];
-          const m2 = scores[`g${gNum}-r1-m2`];
-          if (m1)
-            matchesToInsert.push({
-              round_id: roundData.id,
-              player_one_id: p1.id,
-              player_two_id: p4.id,
-              player_one_score: parseInt(m1.score1, 10),
-              player_two_score: parseInt(m1.score2, 10),
-            });
-          if (m2)
-            matchesToInsert.push({
-              round_id: roundData.id,
-              player_one_id: p2.id,
-              player_two_id: p3.id,
-              player_one_score: parseInt(m2.score1, 10),
-              player_two_score: parseInt(m2.score2, 10),
-            });
-
-          if (m1 && m2) {
-            const w1 =
-              parseInt(m1.score1, 10) > parseInt(m1.score2, 10) ? p1 : p4;
-            const l1 =
-              parseInt(m1.score1, 10) > parseInt(m1.score2, 10) ? p4 : p1;
-            const w2 =
-              parseInt(m2.score1, 10) > parseInt(m2.score2, 10) ? p2 : p3;
-            const l2 =
-              parseInt(m2.score1, 10) > parseInt(m2.score2, 10) ? p3 : p2;
-            const m3 = scores[`g${gNum}-r2-m1`];
-            const m4 = scores[`g${gNum}-r2-m2`];
-            if (m3)
-              matchesToInsert.push({
-                round_id: roundData.id,
-                player_one_id: w1.id,
-                player_two_id: w2.id,
-                player_one_score: parseInt(m3.score1, 10),
-                player_two_score: parseInt(m3.score2, 10),
-              });
-            if (m4)
-              matchesToInsert.push({
-                round_id: roundData.id,
-                player_one_id: l1.id,
-                player_two_id: l2.id,
-                player_one_score: parseInt(m4.score1, 10),
-                player_two_score: parseInt(m4.score2, 10),
-              });
-          }
-        } else if (group.length === 3) {
-          const [p1, p2, p3] = group;
-          [1, 2, 3].forEach((m) => {
-            const ms = scores[`g${gNum}-m${m}`];
-            if (!ms) return;
-            const pair = m === 1 ? [p1, p2] : m === 2 ? [p1, p3] : [p2, p3];
-            matchesToInsert.push({
-              round_id: roundData.id,
-              player_one_id: pair[0].id,
-              player_two_id: pair[1].id,
-              player_one_score: parseInt(ms.score1, 10),
-              player_two_score: parseInt(ms.score2, 10),
-            });
-          });
-        }
+      await executeWithCsrf(async () => {
+        await completeRound(
+          currentLeagueId,
+          currentSeasonId,
+          finalPlayers,
+          entry
+        );
+        showToast("Výsledky kola byly uloženy a žebříček aktualizován.");
+        await fetchData();
       });
-
-      if (matchesToInsert.length > 0) {
-        await supabase.from("matches").insert(matchesToInsert);
-      }
-
-      const { data: existingLinks } = await supabase
-        .from("players_in_leagues")
-        .select("id, player_id")
-        .eq("league_id", currentLeagueId);
-
-      const linkMap = new Map(
-        ((existingLinks as DBPlayerInLeague[]) || []).map((l) => [
-          l.player_id,
-          l.id,
-        ])
-      );
-
-      const updates = finalPlayers
-        .map((p) => {
-          const rowId = linkMap.get(p.id);
-          return {
-            id: rowId,
-            league_id: currentLeagueId,
-            player_id: p.id,
-            rank: p.rank,
-          };
-        })
-        .filter((u) => u.id);
-
-      await supabase.from("players_in_leagues").upsert(updates);
-
-      showToast("Výsledky kola byly uloženy a žebříček aktualizován.");
-      fetchData();
     } catch (err: unknown) {
       if (!handleSecurityError(err)) {
         showToast("Chyba při ukládání kola.", "error");
@@ -549,56 +263,66 @@ const App: React.FC = () => {
     pinned: boolean
   ) => {
     if (!isAuthenticated || !currentLeagueId) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
+
     try {
-      const { error } = await supabase.from("events").insert({
-        title,
-        content,
-        pinned,
-        league_id: currentLeagueId,
+      await executeWithCsrf(async () => {
+        const newEvent = await createEvent(
+          currentLeagueId,
+          title,
+          content,
+          pinned
+        );
+        setEvents((prev) => [newEvent, ...prev]);
+        showToast("Událost byla úspěšně vytvořena.");
+        await fetchData();
       });
-      if (error) throw error;
-      showToast("Událost byla úspěšně vytvořena.");
-      fetchData();
     } catch (err: unknown) {
-      if (!handleSecurityError(err))
+      if (!handleSecurityError(err)) {
         showToast("Chyba při vytváření události.", "error");
+      }
     }
   };
 
   const handleDeleteEvent = async (id: string) => {
     if (!isAuthenticated) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
+
     try {
-      const { error } = await supabase.from("events").delete().eq("id", id);
-      if (error) throw error;
-      showToast("Událost byla smazána.");
-      fetchData();
+      await executeWithCsrf(async () => {
+        await deleteEvent(id);
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        showToast("Událost byla smazána.");
+        await fetchData();
+      });
     } catch (err: unknown) {
-      if (!handleSecurityError(err))
+      if (!handleSecurityError(err)) {
         showToast("Chyba při mazání události.", "error");
+      }
     }
   };
 
   const handleToggleEventPin = async (id: string, currentPinned: boolean) => {
     if (!isAuthenticated) return;
-    const supabase = getSupabase();
-    if (!supabase) return;
+
     try {
-      const { error } = await supabase
-        .from("events")
-        .update({ pinned: !currentPinned })
-        .eq("id", id);
-      if (error) throw error;
-      showToast(
-        currentPinned ? "Událost byla odepnuta." : "Událost byla připnuta."
-      );
-      fetchData();
+      await executeWithCsrf(async () => {
+        const updatedEvent = await toggleEventPin(id, currentPinned);
+        setEvents((prev) =>
+          prev
+            .map((e) => (e.id === id ? updatedEvent : e))
+            .sort((a, b) => {
+              if (a.pinned === b.pinned) return 0;
+              return a.pinned ? -1 : 1;
+            })
+        );
+        showToast(
+          currentPinned ? "Událost byla odepnuta." : "Událost byla připnuta."
+        );
+        await fetchData();
+      });
     } catch (err: unknown) {
-      if (!handleSecurityError(err))
+      if (!handleSecurityError(err)) {
         showToast("Chyba při změně připnutí.", "error");
+      }
     }
   };
 
@@ -647,55 +371,96 @@ const App: React.FC = () => {
     return (
       <div className="tab-content-enter-active">
         {activeTab === "Events" && (
-          <EventsTab
-            events={events}
-            isAuthenticated={isAuthenticated}
-            onAddEvent={handleCreateEvent}
-            onDeleteEvent={handleDeleteEvent}
-            onTogglePin={handleToggleEventPin}
-          />
+          <ErrorBoundary
+            componentName="EventsTab"
+            onError={(error, errorInfo, errorId) => {
+              console.error(`EventsTab error [${errorId}]:`, error, errorInfo);
+              showToast("Chyba při načítání událostí. ID: " + errorId, "error");
+            }}
+          >
+            <EventsTab
+              events={events}
+              isAuthenticated={isAuthenticated}
+              onAddEvent={handleCreateEvent}
+              onDeleteEvent={handleDeleteEvent}
+              onTogglePin={handleToggleEventPin}
+            />
+          </ErrorBoundary>
         )}
         {activeTab === "League" && isAuthenticated && (
-          <LeagueManager
-            allPlayers={players}
-            presentPlayerIds={presentPlayerIds}
-            setPresentPlayerIds={setPresentPlayerIds}
-            onRoundComplete={handleRoundComplete}
-          />
+          <ErrorBoundary
+            componentName="LeagueManager"
+            onError={(error, errorInfo, errorId) => {
+              console.error(
+                `LeagueManager error [${errorId}]:`,
+                error,
+                errorInfo
+              );
+              showToast("Chyba v manageru ligy. ID: " + errorId, "error");
+            }}
+          >
+            <LeagueManager
+              allPlayers={players as Player[]}
+              presentPlayerIds={presentPlayerIds}
+              setPresentPlayerIds={setPresentPlayerIds}
+              onRoundComplete={handleRoundComplete}
+            />
+          </ErrorBoundary>
         )}
         {activeTab === "Players" && (
-          <PlayersTab
-            players={players}
-            calculatedStats={calculateStandings(players, roundHistory).stats}
-            calculatedStreaks={
-              calculateStandings(players, roundHistory).streaks
-            }
-            onRemovePlayer={handleRemovePlayer}
-            onUpdatePlayer={handleUpdatePlayer}
-            isAuthenticated={isAuthenticated}
-          />
+          <ErrorBoundary
+            componentName="PlayersTab"
+            onError={(error, errorInfo, errorId) => {
+              console.error(`PlayersTab error [${errorId}]:`, error, errorInfo);
+              showToast("Chyba při načítání hráčů. ID: " + errorId, "error");
+            }}
+          >
+            <PlayersTab
+              players={players as Player[]}
+              calculatedStats={
+                calculateStandings(players as Player[], roundHistory).stats
+              }
+              calculatedStreaks={
+                calculateStandings(players as Player[], roundHistory).streaks
+              }
+              onRemovePlayer={handleRemovePlayer}
+              onUpdatePlayer={handleUpdatePlayer}
+              isAuthenticated={isAuthenticated}
+            />
+          </ErrorBoundary>
         )}
         {activeTab === "History" && (
-          <HistoryTab
-            roundHistory={roundHistory}
-            onImport={() => {}}
-            isAuthenticated={isAuthenticated}
-          />
+          <ErrorBoundary
+            componentName="HistoryTab"
+            onError={(error, errorInfo, errorId) => {
+              console.error(`HistoryTab error [${errorId}]:`, error, errorInfo);
+              showToast("Chyba při načítání historie. ID: " + errorId, "error");
+            }}
+          >
+            <HistoryTab
+              roundHistory={roundHistory}
+              isAuthenticated={isAuthenticated}
+            />
+          </ErrorBoundary>
         )}
         {activeTab === "Setup" && isAuthenticated && (
-          <SetupTab
-            leagues={leagues}
-            currentLeagueId={currentLeagueId}
-            seasons={seasons}
-            currentSeasonId={currentSeasonId}
-            session={session}
-            onRefresh={() => fetchData(undefined, undefined, true)}
-            onLeagueSelect={(id) => fetchData(id, undefined)}
-            onAddPlayers={handleAddPlayers}
-            allGlobalPlayers={allGlobalPlayers}
-            playersInCurrentLeague={players}
-            onAddExistingPlayer={handleAddExistingPlayer}
-          />
+          <ErrorBoundary
+            componentName="SetupTab"
+            onError={(error, errorInfo, errorId) => {
+              console.error(`SetupTab error [${errorId}]:`, error, errorInfo);
+              showToast("Chyba při nastavení. ID: " + errorId, "error");
+            }}
+          >
+            <SetupTab
+              currentLeagueId={currentLeagueId}
+              onRefresh={() => fetchData(undefined, undefined, true)}
+              onLeagueSelect={(id: string) => fetchData(id, undefined)}
+              onAddPlayers={handleAddPlayers}
+              allGlobalPlayers={allGlobalPlayers}
+              playersInCurrentLeague={players as Player[]}
+              onAddExistingPlayer={handleAddExistingPlayer}
+            />
+          </ErrorBoundary>
         )}
       </div>
     );
@@ -703,20 +468,32 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans selection:bg-indigo-500/30">
-      <Header
-        isAuthenticated={isAuthenticated}
-        userEmail={session?.user?.email}
-        onSignInClick={() => setShowLogin(true)}
-        leagues={leagues}
-        currentLeagueId={currentLeagueId}
-        onLeagueChange={(id) => fetchData(id, undefined)}
-        seasons={seasons}
-        currentSeasonId={currentSeasonId}
-        onSeasonChange={(id) => fetchData(undefined, id)}
-      />
+      <ErrorBoundary
+        componentName="Header"
+        onError={(error, errorInfo, errorId) => {
+          console.error(`Header error [${errorId}]:`, error, errorInfo);
+          showToast("Chyba v hlavičce. ID: " + errorId, "error");
+        }}
+      >
+        <Header
+          isAuthenticated={isAuthenticated}
+          userEmail={session?.user?.email}
+          onSignInClick={() => setShowLogin(true)}
+          onLeagueChange={(id: string) => fetchData(id, undefined)}
+          onSeasonChange={(id: string) => fetchData(undefined, id)}
+        />
+      </ErrorBoundary>
       <main className="container mx-auto p-4 md:p-8">
         {showLogin ? (
-          <Auth onCancel={() => setShowLogin(false)} />
+          <ErrorBoundary
+            componentName="Auth"
+            onError={(error, errorInfo, errorId) => {
+              console.error(`Auth error [${errorId}]:`, error, errorInfo);
+              showToast("Chyba při přihlášení. ID: " + errorId, "error");
+            }}
+          >
+            <Auth onCancel={() => setShowLogin(false)} />
+          </ErrorBoundary>
         ) : (
           <div className="max-w-4xl mx-auto">
             <div className="flex border-b border-gray-700/50 mb-8 overflow-x-auto whitespace-nowrap scrollbar-hide">
@@ -759,10 +536,45 @@ const App: React.FC = () => {
         <Toast
           message={toast.message}
           type={toast.type}
-          onClose={() => setToast(null)}
+          onClose={() => clearToast()}
         />
       )}
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  const setSession = useAuthStore((state) => state.setSession);
+
+  const supabase = getSupabase();
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: currentSession } }) =>
+        setSession(currentSession)
+      );
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase, setSession]);
+
+  return (
+    <ErrorBoundary
+      componentName="App (Global)"
+      onError={(error, errorInfo, errorId) => {
+        console.error(`Global App error [${errorId}]:`, error, errorInfo);
+      }}
+    >
+      <AppContent />
+    </ErrorBoundary>
   );
 };
 
