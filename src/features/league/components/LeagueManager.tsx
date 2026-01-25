@@ -18,7 +18,7 @@ interface LeagueManagerProps {
   setPresentPlayerIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   onRoundComplete: (
     finalPlayers: Player[],
-    newHistoryEntry: RoundHistoryEntry
+    newHistoryEntry: RoundHistoryEntry,
   ) => void;
 }
 
@@ -33,14 +33,17 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
   const [groups, setGroups] = useState<Group[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [scores, setScores] = useState<
-    Record<string, { score1: string; score2: string }>
+    Record<string, { score1: string; score2: string; note?: string }>
   >(() => {
     try {
       const savedScores = localStorage.getItem("leagueScores");
       if (savedScores) {
         const parsed = JSON.parse(savedScores) as unknown;
         if (typeof parsed === "object" && parsed !== null) {
-          return parsed as Record<string, { score1: string; score2: string }>;
+          return parsed as Record<
+            string,
+            { score1: string; score2: string; note?: string }
+          >;
         }
       }
     } catch (error) {
@@ -90,7 +93,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
             (id) =>
               !scores[id] ||
               scores[id].score1 === "" ||
-              scores[id].score2 === ""
+              scores[id].score2 === "",
           )
         ) {
           return false;
@@ -106,7 +109,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
             (id) =>
               !scores[id] ||
               scores[id].score1 === "" ||
-              scores[id].score2 === ""
+              scores[id].score2 === "",
           )
         ) {
           return false;
@@ -137,18 +140,25 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         return newSet;
       });
     },
-    [setPresentPlayerIds]
+    [setPresentPlayerIds],
   );
 
   const handleScoreUpdate = useCallback(
     (matchId: string, score1: string, score2: string) => {
       setScores((prevScores) => ({
         ...prevScores,
-        [matchId]: { score1, score2 },
+        [matchId]: { ...prevScores[matchId], score1, score2 },
       }));
     },
-    []
+    [],
   );
+
+  const handleNoteUpdate = useCallback((matchId: string, note: string) => {
+    setScores((prevScores) => ({
+      ...prevScores,
+      [matchId]: { ...prevScores[matchId], note },
+    }));
+  }, []);
 
   const generateGroups = useCallback(() => {
     setError(null);
@@ -171,14 +181,14 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
     if (groups.length === 0) return;
 
     const groupPlacements = groups.map((group, index) =>
-      resolveGroupPlacements(group, index + 1, scores)
+      resolveGroupPlacements(group, index + 1, scores),
     );
 
     const newPlayerList = calculateNewRanks(
       allPlayers,
       presentPlayers,
       presentPlayerIds,
-      groupPlacements
+      groupPlacements,
     );
 
     setPlacementsForReview(groupPlacements);
@@ -195,7 +205,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
       }));
 
       const groupPlacements = groups.map((group, index) =>
-        resolveGroupPlacements(group, index + 1, scores)
+        resolveGroupPlacements(group, index + 1, scores),
       );
 
       const newHistoryEntry: RoundHistoryEntry = {
@@ -213,7 +223,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
 
       const changes: Record<string, RankChange> = {};
       const oldPlayerRanks = new Map<string, number>(
-        playersBeforeRound.map((p) => [p.id, p.rank])
+        playersBeforeRound.map((p) => [p.id, p.rank]),
       );
       finalPlayersWithRanks.forEach((p) => {
         const oldRank = oldPlayerRanks.get(p.id);
@@ -235,7 +245,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         setRankChanges({});
       }, 2500);
     },
-    [allPlayers, groups, scores, onRoundComplete, presentPlayerIds]
+    [allPlayers, groups, scores, onRoundComplete, presentPlayerIds],
   );
 
   const handleCancelReview = useCallback(() => {
@@ -275,6 +285,7 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
         scores={scores}
         allMatchesScored={allMatchesScored}
         onScoreUpdate={handleScoreUpdate}
+        onNoteUpdate={handleNoteUpdate}
         onFinishRound={handleFinishRound}
       />
     </div>

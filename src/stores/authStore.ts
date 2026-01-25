@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { devtools } from "zustand/middleware";
+import { devtools, persist } from "zustand/middleware";
 import type { Session } from "@supabase/supabase-js";
 
 interface AuthState {
@@ -9,11 +9,18 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   devtools(
-    (set) => ({
-      session: null,
-      setSession: (session) => set({ session }),
-    }),
-    { name: "AuthStore" }
-  )
+    persist(
+      (set) => ({
+        session: null,
+        setSession: (session) => set({ session }),
+      }),
+      {
+        name: "auth-store",
+        partialize: (state) => ({
+          session: state.session,
+        }),
+      },
+    ),
+    { name: "AuthStore" },
+  ),
 );
-

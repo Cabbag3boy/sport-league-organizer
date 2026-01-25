@@ -7,6 +7,11 @@ interface RoundHistoryCardProps {
   isSelected: boolean;
   onToggleSelection: (id: string) => void;
   roundNumber: number;
+  isLastRound?: boolean;
+  isAuthenticated?: boolean;
+  onDelete?: (roundId: string) => Promise<void>;
+  onEdit?: (entry: RoundHistoryEntry) => void;
+  onUndoEdit?: (entry: RoundHistoryEntry) => Promise<void>;
 }
 
 const RankChangeDisplay: React.FC<{
@@ -39,8 +44,15 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
   isSelected,
   onToggleSelection,
   roundNumber,
+  isLastRound = false,
+  isAuthenticated = false,
+  onDelete,
+  onEdit,
+  onUndoEdit,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   const rankChanges = useMemo(() => {
     if (!entry.playersBefore || !entry.playersAfter) return [];
@@ -54,7 +66,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
       }))
       .filter(
         (change) =>
-          change.oldRank !== undefined && change.oldRank !== change.newRank
+          change.oldRank !== undefined && change.oldRank !== change.newRank,
       );
   }, [entry.playersBefore, entry.playersAfter]);
 
@@ -107,6 +119,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
                   player2Name={p4.name}
                   score1={r1m1Scores.score1}
                   score2={r1m1Scores.score2}
+                  note={r1m1Scores.note}
                 />
               )}
               {p2 && p3 && (
@@ -115,6 +128,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
                   player2Name={p3.name}
                   score1={r1m2Scores.score1}
                   score2={r1m2Scores.score2}
+                  note={r1m2Scores.note}
                 />
               )}
             </div>
@@ -129,6 +143,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
                 player2Name={winner2Name}
                 score1={r2m1Scores.score1}
                 score2={r2m1Scores.score2}
+                note={r2m1Scores.note}
               />
               <StaticMatch
                 player1Name={loser1Name}
@@ -160,6 +175,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
               player2Name={p2.name}
               score1={m1Scores.score1}
               score2={m1Scores.score2}
+              note={m1Scores.note}
             />
           )}
           {p1 && p3 && (
@@ -168,6 +184,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
               player2Name={p3.name}
               score1={m2Scores.score1}
               score2={m2Scores.score2}
+              note={m2Scores.note}
             />
           )}
           {p2 && p3 && (
@@ -176,6 +193,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
               player2Name={p3.name}
               score1={m3Scores.score1}
               score2={m3Scores.score2}
+              note={m3Scores.note}
             />
           )}
         </div>
@@ -195,6 +213,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
               player2Name={p2.name}
               score1={m1Scores.score1}
               score2={m1Scores.score2}
+              note={m1Scores.note}
             />
           )}
         </div>
@@ -202,6 +221,31 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
     }
 
     return null;
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || !isLastRound) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(entry.id);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (!onEdit || !isLastRound || !isAuthenticated) return;
+    onEdit(entry);
+  };
+
+  const handleUndo = async () => {
+    if (!onUndoEdit || !isLastRound || !isAuthenticated) return;
+    setIsUndoing(true);
+    try {
+      await onUndoEdit(entry);
+    } finally {
+      setIsUndoing(false);
+    }
   };
 
   return (
@@ -218,7 +262,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="h-5 w-5 rounded bg-gray-600 border-gray-500 text-indigo-500 focus:ring-indigo-600 cursor-pointer"
             aria-label={`Vybrat kolo ze dne ${new Date(
-              entry.date
+              entry.date,
             ).toLocaleDateString("cs-CZ")}`}
           />
           <span className="font-semibold text-indigo-400">
@@ -226,21 +270,97 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
             {new Date(entry.date).toLocaleDateString("cs-CZ")}
           </span>
         </div>
-        <svg
-          className={`w-5 h-5 text-gray-400 transform transition-transform duration-300 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+        <div className="flex items-center gap-2">
+          {isLastRound && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
+              disabled={isDeleting}
+              className="text-red-500 hover:text-red-400 disabled:text-gray-600 transition-colors"
+              title="Smazat toto kolo"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
+          )}
+          {isLastRound && isAuthenticated && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit();
+              }}
+              className="text-yellow-400 hover:text-yellow-300 transition-colors"
+              title="Upravit výsledky tohoto kola"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 4h2m-1 0v16m7-7H5"
+                />
+              </svg>
+            </button>
+          )}
+          {isLastRound && isAuthenticated && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUndo();
+              }}
+              disabled={isUndoing}
+              className="text-indigo-400 hover:text-indigo-300 disabled:text-gray-600 transition-colors"
+              title="Vrátit poslední úpravu"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l-7 7 7 7M22 12H2"
+                />
+              </svg>
+            </button>
+          )}
+          <svg
+            className={`w-5 h-5 text-gray-400 transform transition-transform duration-300 ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 14l-7 7m0 0l-7-7m7 7V3"
+            />
+          </svg>
+        </div>
       </div>
 
       {isExpanded && (

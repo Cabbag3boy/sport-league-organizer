@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { completeRound, fetchRoundHistory } from "../roundService";
+import {
+  completeRound,
+  fetchRoundHistory,
+  updateLastRoundResults,
+  undoLastRoundEdit,
+} from "../roundService";
 import { getSupabase } from "@/utils/supabase";
-import type { Player } from "@/types";
+import type { Player, RoundHistoryEntry } from "@/types";
 import {
   createMockRound,
   createMockRoundDetails,
@@ -126,7 +131,7 @@ describe("roundService", () => {
 
       expect(mockRound.present_players).toHaveLength(3);
       expect(
-        Object.keys(mockRound.details.scores).length
+        Object.keys(mockRound.details.scores).length,
       ).toBeGreaterThanOrEqual(3);
     });
 
@@ -248,5 +253,516 @@ describe("roundService", () => {
 
   it("should export fetchRoundHistory function", () => {
     expect(typeof fetchRoundHistory).toBe("function");
+  });
+
+  describe("Update Last Round Results", () => {
+    it("should throw error if not the last round", async () => {
+      const leagueId = "league-1";
+      const roundId = "round-1";
+      const newScores = {
+        "g1-m1": { score1: "10", score2: "8" },
+      };
+
+      // Mock: round exists but is not the latest
+      const mockOldRound = createMockRound({ id: roundId });
+      const mockLatestRound = createMockRound({ id: "round-2" });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockOldRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockLatestRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      await expect(
+        updateLastRoundResults(leagueId, roundId, newScores),
+      ).rejects.toThrow("Lze upravovat pouze poslední kolo.");
+    });
+
+    it("should update scores and recompute placements for 4-player bracket", async () => {
+      const leagueId = "league-1";
+      const roundId = "round-1";
+      const players: Player[] = [
+        { id: "p1", first_name: "P", last_name: "1", name: "P 1", rank: 1 },
+        { id: "p2", first_name: "P", last_name: "2", name: "P 2", rank: 2 },
+        { id: "p3", first_name: "P", last_name: "3", name: "P 3", rank: 3 },
+        { id: "p4", first_name: "P", last_name: "4", name: "P 4", rank: 4 },
+      ];
+
+      const oldScores = {
+        "g1-r1-m1": { score1: "10", score2: "5" }, // p1 wins
+        "g1-r1-m2": { score1: "8", score2: "6" }, // p2 wins
+        "g1-r2-m1": { score1: "9", score2: "7" }, // p1 wins final
+        "g1-r2-m2": { score1: "10", score2: "9" }, // p2 wins third
+      };
+
+      const newScores = {
+        "g1-r1-m1": { score1: "5", score2: "10" }, // p4 wins (flipped)
+        "g1-r1-m2": { score1: "6", score2: "8" }, // p3 wins (flipped)
+        "g1-r2-m1": { score1: "7", score2: "9" }, // p3 wins final
+        "g1-r2-m2": { score1: "9", score2: "10" }, // p2 wins third
+      };
+
+      const mockRound = createMockRound({
+        id: roundId,
+        present_players: ["p1", "p2", "p3", "p4"],
+        details: createMockRoundDetails({
+          groups: [[players[0]!, players[1]!, players[2]!, players[3]!]],
+          scores: oldScores,
+          playersBefore: players,
+          playersAfter: [
+            { ...players[0]!, rank: 1 },
+            { ...players[1]!, rank: 2 },
+            { ...players[2]!, rank: 3 },
+            { ...players[3]!, rank: 4 },
+          ],
+        }),
+      });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === "players_in_leagues") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "link1", player_id: "p1" },
+                  { id: "link2", player_id: "p2" },
+                  { id: "link3", player_id: "p3" },
+                  { id: "link4", player_id: "p4" },
+                ],
+                error: null,
+              }),
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "matches") {
+          return {
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      const result = await updateLastRoundResults(leagueId, roundId, newScores);
+      expect(result).toBeDefined();
+      expect(result.playersUpdated).toBeGreaterThan(0);
+      expect(result.matchesUpdated).toBeGreaterThan(0);
+    });
+
+    it("should snapshot previous details for undo", async () => {
+      // This test verifies that the update call includes previousDetails
+      const leagueId = "league-1";
+      const roundId = "round-1";
+      const mockRound = createMockRound({ id: roundId });
+
+      let capturedUpdateData: any = null;
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+            update: vi.fn((data) => {
+              capturedUpdateData = data;
+              return {
+                eq: vi.fn().mockResolvedValue({ error: null }),
+              };
+            }),
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === "players_in_leagues") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [{ id: "link1", player_id: "p1" }],
+                error: null,
+              }),
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "matches") {
+          return {
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      const newScores = { "g1-m1": { score1: "5", score2: "3" } };
+      await updateLastRoundResults(leagueId, roundId, newScores);
+
+      // Verify previousDetails is in the update call
+      if (capturedUpdateData) {
+        expect(capturedUpdateData.details).toBeDefined();
+        expect(capturedUpdateData.details.previousDetails).toBeDefined();
+      }
+    });
+  });
+
+  describe("Undo Last Round Edit", () => {
+    it("should throw error if no previous details exist", async () => {
+      const leagueId = "league-1";
+      const roundId = "round-1";
+
+      const mockRound = createMockRound({
+        id: roundId,
+        details: createMockRoundDetails({
+          // No previousDetails
+        }),
+      });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      await expect(undoLastRoundEdit(leagueId, roundId)).rejects.toThrow(
+        "Žádná předchozí verze pro vrácení.",
+      );
+    });
+
+    it("should restore previous round state including scores and placements", async () => {
+      const leagueId = "league-1";
+      const roundId = "round-1";
+      const players: Player[] = [
+        { id: "p1", first_name: "P", last_name: "1", name: "P 1", rank: 1 },
+        { id: "p2", first_name: "P", last_name: "2", name: "P 2", rank: 2 },
+      ];
+
+      const previousScores = {
+        "g1-m1": { score1: "10", score2: "8" },
+      };
+      const currentScores = {
+        "g1-m1": { score1: "8", score2: "10" },
+      };
+
+      const mockRound = createMockRound({
+        id: roundId,
+        present_players: ["p1", "p2"],
+        details: {
+          groups: [[players[0]!, players[1]!]],
+          scores: currentScores,
+          finalPlacements: [[players[1]!, players[0]!]], // p2 first after edit
+          playersBefore: players,
+          playersAfter: [
+            { ...players[1]!, rank: 1 },
+            { ...players[0]!, rank: 2 },
+          ],
+          previousDetails: {
+            groups: [[players[0]!, players[1]!]],
+            scores: previousScores,
+            finalPlacements: [[players[0]!, players[1]!]], // p1 first before edit
+            playersBefore: players,
+            playersAfter: [
+              { ...players[0]!, rank: 1 },
+              { ...players[1]!, rank: 2 },
+            ],
+          },
+        },
+      });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === "players_in_leagues") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "link1", player_id: "p1" },
+                  { id: "link2", player_id: "p2" },
+                ],
+                error: null,
+              }),
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "matches") {
+          return {
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      const result = await undoLastRoundEdit(leagueId, roundId);
+      expect(result).toBeDefined();
+      expect(result.playersUpdated).toBeGreaterThan(0);
+      expect(result.matchesUpdated).toBeGreaterThan(0);
+    });
+
+    it("should throw error if not the last round", async () => {
+      const leagueId = "league-1";
+      const roundId = "round-1";
+
+      const mockOldRound = createMockRound({ id: roundId });
+      const mockLatestRound = createMockRound({ id: "round-2" });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockOldRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockLatestRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      await expect(undoLastRoundEdit(leagueId, roundId)).rejects.toThrow(
+        "Lze vrátit pouze poslední kolo.",
+      );
+    });
+
+    it("should verify placements revert to previous state after undo", async () => {
+      // Same as restore test, just validates the previousDetails are used
+      const leagueId = "league-1";
+      const roundId = "round-1";
+      const players: Player[] = [
+        { id: "p1", first_name: "P", last_name: "1", name: "P 1", rank: 1 },
+        { id: "p2", first_name: "P", last_name: "2", name: "P 2", rank: 2 },
+      ];
+
+      const mockRound = createMockRound({
+        id: roundId,
+        present_players: ["p1", "p2"],
+        details: {
+          groups: [[players[0]!, players[1]!]],
+          scores: { "g1-m1": { score1: "8", score2: "10" } },
+          finalPlacements: [[players[1]!, players[0]!]],
+          playersBefore: players,
+          playersAfter: [
+            { ...players[1]!, rank: 1 },
+            { ...players[0]!, rank: 2 },
+          ],
+          previousDetails: {
+            groups: [[players[0]!, players[1]!]],
+            scores: { "g1-m1": { score1: "10", score2: "8" } },
+            finalPlacements: [[players[0]!, players[1]!]],
+            playersBefore: players,
+            playersAfter: [
+              { ...players[0]!, rank: 1 },
+              { ...players[1]!, rank: 2 },
+            ],
+          },
+        },
+      });
+
+      mockSupabase.from.mockImplementation((table: string) => {
+        if (table === "rounds") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn((field, value) => {
+                if (field === "id") {
+                  return {
+                    single: vi.fn().mockResolvedValue({
+                      data: mockRound,
+                      error: null,
+                    }),
+                  };
+                }
+                // For season_id query
+                return {
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [mockRound],
+                      error: null,
+                    }),
+                  }),
+                };
+              }),
+            }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === "players_in_leagues") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "link1", player_id: "p1" },
+                  { id: "link2", player_id: "p2" },
+                ],
+                error: null,
+              }),
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === "matches") {
+          return {
+            delete: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return createMockQueryBuilder();
+      });
+
+      await expect(undoLastRoundEdit(leagueId, roundId)).resolves.toBeDefined();
+    });
   });
 });

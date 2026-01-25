@@ -10,7 +10,7 @@ export type Group = Player[];
 
 export interface RoundDetails {
   groups: Group[];
-  scores: Record<string, { score1: string; score2: string }>;
+  scores: Record<string, { score1: string; score2: string; note?: string }>;
   finalPlacements: Player[][];
   playersBefore: Player[];
   playersAfter: Player[];
@@ -80,6 +80,7 @@ export interface DBMatch {
   player_two_id: string;
   player_one_score: number;
   player_two_score: number;
+  note?: string | null;
   created_at?: string;
 }
 
@@ -199,4 +200,3 @@ export interface CompleteRoundOutput {
 export interface FetchGlobalPlayersOutput {
   players: DBPlayer[];
 }
-

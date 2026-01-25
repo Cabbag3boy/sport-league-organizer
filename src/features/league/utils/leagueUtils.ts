@@ -2,7 +2,7 @@ import type { Player, Group } from "@/types";
 import { moveItems, moveToTopPreserveOrder } from "@/utils/shared/moveItems";
 
 export const generateGroupsLogic = (
-  presentPlayers: Player[]
+  presentPlayers: Player[],
 ): { groups: Group[]; error: string | null } => {
   const numPlayers = presentPlayers.length;
 
@@ -59,7 +59,7 @@ export const generateGroupsLogic = (
 export const resolveGroupPlacements = (
   group: Group,
   groupNumber: number,
-  scores: Record<string, { score1: string; score2: string }>
+  scores: Record<string, { score1: string; score2: string; note?: string }>,
 ): Player[] => {
   if (group.length === 4) {
     const p1 = group[0];
@@ -89,7 +89,7 @@ export const resolveGroupPlacements = (
     const getWinner = (
       pA: Player,
       pB: Player,
-      s: { score1: string; score2: string }
+      s: { score1: string; score2: string },
     ) => {
       const s1 = parseInt(s.score1) || 0;
       const s2 = parseInt(s.score2) || 0;
@@ -128,7 +128,7 @@ export const resolveGroupPlacements = (
     const processMatch = (
       matchId: string,
       player1: Player,
-      player2: Player
+      player2: Player,
     ) => {
       const matchScores = scores[matchId];
       if (
@@ -204,11 +204,11 @@ export const calculateNewRanks = (
   allPlayers: Player[],
   presentPlayers: Player[],
   presentPlayerIds: Set<string>,
-  groupPlacements: Player[][]
+  groupPlacements: Player[][],
 ): Player[] => {
   const allPlayersById = new Map(allPlayers.map((p) => [p.id, p]));
   const placementsCopy: Player[][] = groupPlacements.map((group) =>
-    group.map((player) => ({ ...player }))
+    group.map((player) => ({ ...player })),
   );
 
   const demotedPlayerIds = new Set<string>();
@@ -243,11 +243,11 @@ export const calculateNewRanks = (
 
   for (const presentPlayer of finalPresentOrder.slice().reverse()) {
     const originalPresentIndex = presentPlayers.findIndex(
-      (item) => item.id === presentPlayer.id
+      (item) => item.id === presentPlayer.id,
     );
     const finalPresentIndex = finalPresentOrder.indexOf(presentPlayer);
     const allPlayersIndex = allPlayers.findIndex(
-      (item) => item.id === presentPlayer.id
+      (item) => item.id === presentPlayer.id,
     );
     const idsToMove = new Set<string>();
 
@@ -256,7 +256,7 @@ export const calculateNewRanks = (
         .filter(
           (item) =>
             allPlayers.findIndex((p) => p.id === item.id) > allPlayersIndex &&
-            !presentPlayerIds.has(item.id)
+            !presentPlayerIds.has(item.id),
         )
         .map((item) => item.id);
 
@@ -266,7 +266,7 @@ export const calculateNewRanks = (
     idsToMove.add(presentPlayer.id);
 
     moveToTopPreserveOrder(allPlayersStack, newPlayerList, (item) =>
-      idsToMove.has(item.id)
+      idsToMove.has(item.id),
     );
   }
 
@@ -291,7 +291,7 @@ export const calculateNewRanks = (
 export const reorderPlayerRanks = (
   players: Player[],
   updatedPlayerId: string,
-  newRank: number
+  newRank: number,
 ): { reorderedPlayers: Player[]; error: string | null } => {
   // Validate rank bounds
   if (newRank < 1 || newRank > players.length) {

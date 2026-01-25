@@ -2,20 +2,46 @@ import React, { useRef, useCallback, useState } from "react";
 import type { RoundHistoryEntry } from "@/types";
 import RoundHistoryCard from "./RoundHistoryCard";
 import { generateXLSContent, downloadFile } from "@/utils/shared/exportUtils";
+import ConfirmModal from "@/components/shared/ConfirmModal";
+import { deleteLastRound } from "@/features/rounds/services/roundService";
+import { useNotification } from "@/hooks/useNotification";
+import { useCsrfValidation } from "@/features/auth/hooks/useCsrfValidation";
+import EditRoundModal from "./EditRoundModal";
+import {
+  updateLastRoundResults,
+  undoLastRoundEdit,
+} from "@/features/rounds/services/roundService";
 
 interface HistoryTabProps {
   roundHistory: RoundHistoryEntry[];
   isAuthenticated: boolean;
+  currentLeagueId?: string | null;
+  onRefresh?: () => Promise<void>;
 }
 
 const HistoryTab: React.FC<HistoryTabProps> = ({
   roundHistory,
   isAuthenticated,
+  currentLeagueId,
+  onRefresh,
 }) => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const [selectedRoundIds, setSelectedRoundIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [roundToDelete, setRoundToDelete] = useState<RoundHistoryEntry | null>(
+    null,
+  );
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [roundToEdit, setRoundToEdit] = useState<RoundHistoryEntry | null>(
+    null,
+  );
+  const { showToast } = useNotification();
+  const { validateAndExecute } = useCsrfValidation();
+
+  // Get the last round (first in DESC ordered array)
+  const lastRound = roundHistory[0] || null;
 
   const handleToggleSelection = useCallback((id: string) => {
     setSelectedRoundIds((prev) => {
@@ -35,13 +61,13 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
   const handleExportXLS = useCallback(() => {
     if (selectedRoundIds.size === 0) return;
     const selectedRounds = roundHistory.filter((r) =>
-      selectedRoundIds.has(r.id)
+      selectedRoundIds.has(r.id),
     );
     const content = generateXLSContent(selectedRounds);
     downloadFile(
       content,
       `historie-ligy-${new Date().toISOString().slice(0, 10)}.xls`,
-      "application/vnd.ms-excel"
+      "application/vnd.ms-excel",
     );
   }, [roundHistory, selectedRoundIds]);
 
@@ -50,9 +76,106 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
     downloadFile(
       JSON.stringify(roundHistory, null, 2),
       `kompletni-historie-ligy-${new Date().toISOString().slice(0, 10)}.json`,
-      "application/json"
+      "application/json",
     );
   }, [roundHistory]);
+
+  const handleDeleteRound = async (roundId: string) => {
+    const round = roundHistory.find((r) => r.id === roundId);
+    if (!round) return;
+
+    // Check if this is the last round
+    if (lastRound?.id !== roundId) {
+      showToast("Lze smazat pouze poslední odehrané kolo.", "error");
+      return;
+    }
+
+    setRoundToDelete(round);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!roundToDelete || !lastRound || roundToDelete.id !== lastRound.id) {
+      showToast("Lze smazat pouze poslední odehrané kolo.", "error");
+      setIsDeleteModalOpen(false);
+      return;
+    }
+
+    try {
+      await validateAndExecute(async () => {
+        if (!currentLeagueId) throw new Error("Chybí ID ligy");
+
+        await deleteLastRound(
+          currentLeagueId,
+          roundToDelete.id,
+          roundToDelete.playersBefore,
+        );
+
+        showToast("Kolo bylo smazáno a žebříček vrácen do předchozího stavu.");
+        setIsDeleteModalOpen(false);
+
+        // Refresh data
+        if (onRefresh) {
+          await onRefresh();
+        }
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast(`Chyba při mazání kola: ${message}`, "error");
+    }
+  };
+
+  const handleEditRound = (entry: RoundHistoryEntry) => {
+    // Only allow editing the last round
+    if (!lastRound || entry.id !== lastRound.id) {
+      showToast("Upravovat lze pouze poslední kolo.", "error");
+      return;
+    }
+    setRoundToEdit(entry);
+    setIsEditModalOpen(true);
+  };
+
+  const handleConfirmEdit = async (
+    scores: Record<string, { score1: string; score2: string; note?: string }>,
+  ) => {
+    if (!roundToEdit || !lastRound || roundToEdit.id !== lastRound.id) {
+      showToast("Upravovat lze pouze poslední kolo.", "error");
+      setIsEditModalOpen(false);
+      return;
+    }
+    try {
+      await validateAndExecute(async () => {
+        if (!currentLeagueId) throw new Error("Chybí ID ligy");
+        await updateLastRoundResults(currentLeagueId, roundToEdit.id, scores);
+        showToast("Výsledky kola byly úspěšně upraveny.");
+        setIsEditModalOpen(false);
+        setRoundToEdit(null);
+        if (onRefresh) await onRefresh();
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast(`Chyba při úpravě kola: ${message}`, "error");
+    }
+  };
+
+  const handleUndoEdit = async (entry: RoundHistoryEntry) => {
+    // Only allow undo on last round
+    if (!lastRound || entry.id !== lastRound.id) {
+      showToast("Vrátit lze pouze poslední kolo.", "error");
+      return;
+    }
+    try {
+      await validateAndExecute(async () => {
+        if (!currentLeagueId) throw new Error("Chybí ID ligy");
+        await undoLastRoundEdit(currentLeagueId, entry.id);
+        showToast("Poslední úprava byla vrácena.");
+        if (onRefresh) await onRefresh();
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      showToast(`Chyba při vrácení úpravy: ${message}`, "error");
+    }
+  };
 
   return (
     <div className="p-4 bg-gray-800/50 rounded-lg">
@@ -112,6 +235,11 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
               roundNumber={roundHistory.length - index}
               isSelected={selectedRoundIds.has(entry.id)}
               onToggleSelection={handleToggleSelection}
+              isLastRound={index === 0}
+              isAuthenticated={isAuthenticated}
+              onDelete={handleDeleteRound}
+              onEdit={handleEditRound}
+              onUndoEdit={handleUndoEdit}
             />
           ))}
         </div>
@@ -119,6 +247,40 @@ const HistoryTab: React.FC<HistoryTabProps> = ({
         <p className="text-center text-gray-400 py-8">
           Zatím nebyla odehrána žádná kola.
         </p>
+      )}
+
+      {/* Delete confirmation modal */}
+      {isDeleteModalOpen && roundToDelete && (
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          title="Smazat kolo?"
+          message={`Opravdu chcete smazat kolo ze dne ${new Date(
+            roundToDelete.date,
+          ).toLocaleDateString(
+            "cs-CZ",
+          )}? Žebříček bude vrácen do stavu před tímto kolem.`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            setIsDeleteModalOpen(false);
+            setRoundToDelete(null);
+          }}
+          confirmText="Smazat"
+          cancelText="Zrušit"
+          confirmButtonClass="bg-red-600 hover:bg-red-500"
+        />
+      )}
+
+      {/* Edit round modal */}
+      {isEditModalOpen && roundToEdit && (
+        <EditRoundModal
+          isOpen={isEditModalOpen}
+          entry={roundToEdit}
+          onConfirm={handleConfirmEdit}
+          onCancel={() => {
+            setIsEditModalOpen(false);
+            setRoundToEdit(null);
+          }}
+        />
       )}
     </div>
   );

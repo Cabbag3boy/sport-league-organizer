@@ -4,9 +4,10 @@ import GroupCard from "./GroupCard";
 
 interface GroupRenderingPanelProps {
   groups: Group[];
-  scores: Record<string, { score1: string; score2: string }>;
+  scores: Record<string, { score1: string; score2: string; note?: string }>;
   allMatchesScored: boolean;
   onScoreUpdate: (matchId: string, score1: string, score2: string) => void;
+  onNoteUpdate?: (matchId: string, note: string) => void;
   onFinishRound: () => void;
 }
 
@@ -15,6 +16,7 @@ const GroupRenderingPanel: React.FC<GroupRenderingPanelProps> = ({
   scores,
   allMatchesScored,
   onScoreUpdate,
+  onNoteUpdate,
   onFinishRound,
 }) => {
   const title = useMemo(() => {
@@ -39,6 +41,7 @@ const GroupRenderingPanel: React.FC<GroupRenderingPanelProps> = ({
             groupNumber={index + 1}
             scores={scores}
             onScoreUpdate={onScoreUpdate}
+            onNoteUpdate={onNoteUpdate}
           />
         ))}
       </div>
@@ -56,4 +59,3 @@ const GroupRenderingPanel: React.FC<GroupRenderingPanelProps> = ({
 };
 
 export default GroupRenderingPanel;
-

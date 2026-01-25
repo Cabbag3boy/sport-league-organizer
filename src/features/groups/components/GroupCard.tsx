@@ -5,8 +5,9 @@ import Match from "@/components/shared/Match";
 interface GroupCardProps {
   group: Group;
   groupNumber: number;
-  scores: Record<string, { score1: string; score2: string }>;
+  scores: Record<string, { score1: string; score2: string; note?: string }>;
   onScoreUpdate: (matchId: string, score1: string, score2: string) => void;
+  onNoteUpdate?: (matchId: string, note: string) => void;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -14,6 +15,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   groupNumber,
   scores,
   onScoreUpdate,
+  onNoteUpdate,
 }) => {
   const renderMatches = () => {
     if (group.length === 4) {
@@ -64,6 +66,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 score1={r1m1Scores.score1}
                 score2={r1m1Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r1m1Id, s1, s2)}
+                note={r1m1Scores.note}
+                onNoteChange={(n) => onNoteUpdate?.(r1m1Id, n)}
                 isPlaceholder={false}
               />
               <Match
@@ -72,6 +76,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 score1={r1m2Scores.score1}
                 score2={r1m2Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r1m2Id, s1, s2)}
+                note={r1m2Scores.note}
+                onNoteChange={(n) => onNoteUpdate?.(r1m2Id, n)}
                 isPlaceholder={false}
               />
             </ul>
@@ -87,6 +93,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 score1={r2m1Scores.score1}
                 score2={r2m1Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m1Id, s1, s2)}
+                note={r2m1Scores.note}
+                onNoteChange={(n) => onNoteUpdate?.(r2m1Id, n)}
                 isPlaceholder={!winner1 || !winner2}
               />
               <Match
@@ -95,6 +103,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 score1={r2m2Scores.score1}
                 score2={r2m2Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m2Id, s1, s2)}
+                note={r2m2Scores.note}
+                onNoteChange={(n) => onNoteUpdate?.(r2m2Id, n)}
                 isPlaceholder={!loser1 || !loser2}
               />
             </ul>
@@ -125,6 +135,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
               score1={m1Scores.score1}
               score2={m1Scores.score2}
               onScoreChange={(s1, s2) => onScoreUpdate(m1Id, s1, s2)}
+              note={m1Scores.note}
+              onNoteChange={(n) => onNoteUpdate?.(m1Id, n)}
               isPlaceholder={false}
             />
             <Match
@@ -133,6 +145,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
               score1={m2Scores.score1}
               score2={m2Scores.score2}
               onScoreChange={(s1, s2) => onScoreUpdate(m2Id, s1, s2)}
+              note={m2Scores.note}
+              onNoteChange={(n) => onNoteUpdate?.(m2Id, n)}
               isPlaceholder={false}
             />
             <Match
@@ -141,6 +155,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
               score1={m3Scores.score1}
               score2={m3Scores.score2}
               onScoreChange={(s1, s2) => onScoreUpdate(m3Id, s1, s2)}
+              note={m3Scores.note}
+              onNoteChange={(n) => onNoteUpdate?.(m3Id, n)}
               isPlaceholder={false}
             />
           </ul>
@@ -163,6 +179,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
               score1={m1Scores.score1}
               score2={m1Scores.score2}
               onScoreChange={(s1, s2) => onScoreUpdate(m1Id, s1, s2)}
+              note={m1Scores.note}
+              onNoteChange={(n) => onNoteUpdate?.(m1Id, n)}
               isPlaceholder={false}
             />
           </ul>

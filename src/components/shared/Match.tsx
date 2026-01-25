@@ -6,6 +6,8 @@ interface MatchProps {
   score1: string;
   score2: string;
   onScoreChange: (score1: string, score2: string) => void;
+  note?: string;
+  onNoteChange?: (note: string) => void;
   isPlaceholder?: boolean;
 }
 
@@ -15,6 +17,8 @@ const Match: React.FC<MatchProps> = ({
   score1,
   score2,
   onScoreChange,
+  note = "",
+  onNoteChange,
   isPlaceholder = false,
 }) => {
   const handleScore1Change = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,6 +27,10 @@ const Match: React.FC<MatchProps> = ({
 
   const handleScore2Change = (e: React.ChangeEvent<HTMLInputElement>) => {
     onScoreChange(score1, e.target.value);
+  };
+
+  const handleNoteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onNoteChange?.(e.target.value);
   };
 
   const inputClasses =
@@ -54,29 +62,40 @@ const Match: React.FC<MatchProps> = ({
   }
 
   return (
-    <li className="flex justify-center items-center bg-gray-900 p-2 rounded-md">
-      <span className={player1Classes}>{player1Name}</span>
-      <input
-        type="number"
-        value={score1}
-        onChange={handleScore1Change}
-        disabled={isPlaceholder}
-        className={inputClasses}
-        aria-label={`${player1Name} score`}
-      />
-      <span className="font-bold text-indigo-400 mx-1 text-sm">VS</span>
-      <input
-        type="number"
-        value={score2}
-        onChange={handleScore2Change}
-        disabled={isPlaceholder}
-        className={inputClasses}
-        aria-label={`${player2Name} score`}
-      />
-      <span className={player2Classes}>{player2Name}</span>
+    <li className="flex flex-col bg-gray-900 p-2 rounded-md">
+      <div className="flex justify-center items-center">
+        <span className={player1Classes}>{player1Name}</span>
+        <input
+          type="number"
+          value={score1}
+          onChange={handleScore1Change}
+          disabled={isPlaceholder}
+          className={inputClasses}
+          aria-label={`${player1Name} score`}
+        />
+        <span className="font-bold text-indigo-400 mx-1 text-sm">VS</span>
+        <input
+          type="number"
+          value={score2}
+          onChange={handleScore2Change}
+          disabled={isPlaceholder}
+          className={inputClasses}
+          aria-label={`${player2Name} score`}
+        />
+        <span className={player2Classes}>{player2Name}</span>
+      </div>
+      {!isPlaceholder && (
+        <input
+          type="text"
+          value={note}
+          onChange={handleNoteChange}
+          placeholder="Note (optional)"
+          className="mt-2 w-full bg-gray-700 text-white text-sm rounded-md p-1 px-2 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-500 transition-colors"
+          aria-label="Match note"
+        />
+      )}
     </li>
   );
 };
 
 export default Match;
-

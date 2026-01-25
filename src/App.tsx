@@ -26,12 +26,12 @@ const AppContent: React.FC = () => {
   const setLeagues = useLeagueStore((state) => state.setLeagues);
   const currentLeagueId = useLeagueStore((state) => state.currentLeagueId);
   const setCurrentLeagueId = useLeagueStore(
-    (state) => state.setCurrentLeagueId
+    (state) => state.setCurrentLeagueId,
   );
   const setSeasons = useLeagueStore((state) => state.setSeasons);
   const currentSeasonId = useLeagueStore((state) => state.currentSeasonId);
   const setCurrentSeasonId = useLeagueStore(
-    (state) => state.setCurrentSeasonId
+    (state) => state.setCurrentSeasonId,
   );
   const { toast, showToast, clearToast, handleSecurityError } =
     useNotification();
@@ -49,7 +49,7 @@ const AppContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [presentPlayerIds, setPresentPlayerIds] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const isAuthenticated = !!session;
@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
     leagueId: string,
     title: string,
     content: string,
-    pinned: boolean
+    pinned: boolean,
   ) => eventService.createEvent({ leagueId, title, content, pinned });
 
   const deleteEvent = (eventId: string) =>
@@ -73,7 +73,7 @@ const AppContent: React.FC = () => {
     leagueId: string,
     seasonId: string,
     finalPlayers: Player[],
-    entry: RoundHistoryEntry
+    entry: RoundHistoryEntry,
   ) =>
     roundService.completeRound({
       leagueId,
@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
   const fetchData = async (
     leagueId?: string,
     seasonId?: string,
-    forceRefreshLeagues = false
+    forceRefreshLeagues = false,
   ) => {
     setIsLoading(true);
     setDbError(null);
@@ -99,7 +99,7 @@ const AppContent: React.FC = () => {
       const data = await fetchCompleteData(
         leagueId,
         seasonId,
-        forceRefreshLeagues
+        forceRefreshLeagues,
       );
 
       setLeagues(data.leagues);
@@ -131,18 +131,34 @@ const AppContent: React.FC = () => {
 
     if (!supabase) return;
 
-    fetchData();
-
-    supabase.auth.getSession();
+    // Get current session from localStorage (if persisted)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        useAuthStore.setState({ session });
+      }
+    });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+    } = supabase.auth.onAuthStateChange((event, currentSession) => {
       useAuthStore.setState({ session: currentSession });
-      if (currentSession) {
+
+      // Handle auth state changes
+      if (event === "SIGNED_IN" && currentSession) {
         setShowLogin(false);
         setDbError(null);
         showToast("Přihlášení proběhlo úspěšně.");
+        // Refresh data when user signs in
+        fetchData(undefined, undefined, true);
+      } else if (event === "SIGNED_OUT") {
+        setShowLogin(false);
+        setDbError(null);
+        showToast("Odhlášení bylo úspěšné.");
+        // Refresh data when user signs out (to update league visibility)
+        fetchData(undefined, undefined, true);
+      } else if (event === "TOKEN_REFRESHED" && currentSession) {
+        // Silent token refresh - just update session, no toast
+        useAuthStore.setState({ session: currentSession });
       }
     });
 
@@ -221,7 +237,7 @@ const AppContent: React.FC = () => {
       await executeWithCsrf(async () => {
         const updated = await updatePlayer(currentLeagueId, updatedPlayer);
         setPlayers((prev) =>
-          prev.map((p) => (p.id === updated.id ? updated : p))
+          prev.map((p) => (p.id === updated.id ? updated : p)),
         );
         showToast("Hráč byl aktualizován.");
         await fetchData();
@@ -235,7 +251,7 @@ const AppContent: React.FC = () => {
 
   const handleRoundComplete = async (
     finalPlayers: Player[],
-    entry: RoundHistoryEntry
+    entry: RoundHistoryEntry,
   ) => {
     if (!isAuthenticated || !currentSeasonId || !currentLeagueId) return;
 
@@ -245,7 +261,7 @@ const AppContent: React.FC = () => {
           currentLeagueId,
           currentSeasonId,
           finalPlayers,
-          entry
+          entry,
         );
         showToast("Výsledky kola byly uloženy a žebříček aktualizován.");
         await fetchData();
@@ -260,7 +276,7 @@ const AppContent: React.FC = () => {
   const handleCreateEvent = async (
     title: string,
     content: string,
-    pinned: boolean
+    pinned: boolean,
   ) => {
     if (!isAuthenticated || !currentLeagueId) return;
 
@@ -270,7 +286,7 @@ const AppContent: React.FC = () => {
           currentLeagueId,
           title,
           content,
-          pinned
+          pinned,
         );
         setEvents((prev) => [newEvent, ...prev]);
         showToast("Událost byla úspěšně vytvořena.");
@@ -312,10 +328,10 @@ const AppContent: React.FC = () => {
             .sort((a, b) => {
               if (a.pinned === b.pinned) return 0;
               return a.pinned ? -1 : 1;
-            })
+            }),
         );
         showToast(
-          currentPinned ? "Událost byla odepnuta." : "Událost byla připnuta."
+          currentPinned ? "Událost byla odepnuta." : "Událost byla připnuta.",
         );
         await fetchData();
       });
@@ -394,7 +410,7 @@ const AppContent: React.FC = () => {
               console.error(
                 `LeagueManager error [${errorId}]:`,
                 error,
-                errorInfo
+                errorInfo,
               );
               showToast("Chyba v manageru ligy. ID: " + errorId, "error");
             }}
@@ -440,6 +456,8 @@ const AppContent: React.FC = () => {
             <HistoryTab
               roundHistory={roundHistory}
               isAuthenticated={isAuthenticated}
+              currentLeagueId={currentLeagueId}
+              onRefresh={() => fetchData(currentLeagueId, currentSeasonId)}
             />
           </ErrorBoundary>
         )}
@@ -554,7 +572,7 @@ const App: React.FC = () => {
     supabase.auth
       .getSession()
       .then(({ data: { session: currentSession } }) =>
-        setSession(currentSession)
+        setSession(currentSession),
       );
 
     const {
