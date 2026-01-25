@@ -9,7 +9,9 @@ A modern web application for organizing and managing sports leagues, players, se
 - **Player Management** - Add, edit, and manage player information and rankings
 - **Round Management** - Create rounds and organize bracket/round-robin matches
 - **Match Scoring** - Record match results and automatically update player rankings
+- **Match Notes** - Add optional text notes to matches for context and commentary
 - **Event Tracking** - Log league events and maintain history
+- **Round History** - View, edit, and undo round results with full snapshot support
 - **Authentication** - Secure user authentication with CSRF protection
 - **Responsive Design** - Works seamlessly on desktop and mobile devices
 
@@ -161,6 +163,14 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - Record match scores and results
 - Automatic ranking updates based on outcomes
 - Match history and statistics
+- Optional text notes on each match for context (e.g., injury, forfeit, disputed)
+
+### Round History Management
+
+- View complete history of all rounds
+- Edit match results in the last round (with automatic recomputation of standings)
+- One-level undo to revert round edits
+- Notes persist through edits and undo operations
 
 ### Authentication & Security
 

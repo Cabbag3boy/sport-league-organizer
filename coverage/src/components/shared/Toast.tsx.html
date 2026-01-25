@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">12.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/8</span>
+                <span class='fraction'>1/8</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>0/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">14.28% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/7</span>
+                <span class='fraction'>1/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -174,21 +174,18 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -233,7 +230,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -273,19 +273,19 @@ interface ToastProps {
   onClose: () =&gt; void;
 }
 &nbsp;
-const Toast: React.FC&lt;ToastProps&gt; = ({ message, type, onClose }) =&gt; {
-  useEffect(() =&gt; {
-    const timer = setTimeout(onClose, 4000);
-    return () =&gt; clearTimeout(timer);
+const Toast: React.FC&lt;ToastProps&gt; = <span class="fstat-no" title="function not covered" >({</span> message, type, onClose }) =&gt; {
+<span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+    const timer = <span class="cstat-no" title="statement not covered" >setTimeout(onClose, 4000);</span>
+<span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >c</span>learTimeout(timer);</span></span>
   }, [onClose]);
 &nbsp;
-  const bgColor = {
+  const bgColor = <span class="cstat-no" title="statement not covered" >{</span>
     success: "bg-green-600",
     error: "bg-red-600",
     info: "bg-indigo-600",
   }[type];
 &nbsp;
-  const icon = {
+  const icon = <span class="cstat-no" title="statement not covered" >{</span>
     success: (
       &lt;svg
         className="w-5 h-5"
@@ -333,7 +333,7 @@ const Toast: React.FC&lt;ToastProps&gt; = ({ message, type, onClose }) =&gt; {
     ),
   }[type];
 &nbsp;
-  return (
+<span class="cstat-no" title="statement not covered" >  return (</span>
     &lt;div
       className={`fixed bottom-6 right-6 flex items-center gap-3 ${bgColor} text-white px-6 py-4 rounded-2xl shadow-2xl z-[100] animate-in fade-in slide-in-from-right-10 duration-300`}
     &gt;
@@ -370,7 +370,7 @@ export default Toast;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-19T15:02:27.322Z
+                at 2026-01-25T18:12:40.506Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

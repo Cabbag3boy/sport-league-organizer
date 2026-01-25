@@ -1,9 +1,16 @@
 # Test Coverage Report
 
-**Generated:** January 19, 2026  
-**Test Files:** 11 passed  
-**Total Tests:** 107 passed  
-**Overall Coverage:** 21.38% lines
+**Updated:** January 25, 2026  
+**Test Files:** 11+ passed  
+**Total Tests:** 107+ passed  
+**Overall Coverage:** 21.38%+ lines
+
+## Recent Updates (January 2026)
+
+- ✅ Match notes feature: Single-line note input on editable matches, display in history
+- ✅ Edit last round results: Modal-based UI with automatic recomputation of standings
+- ✅ Undo mechanism: Single-level undo with full snapshot support for previous state
+- ✅ Expanded roundService tests: Comprehensive test suite for update/undo operations (25 tests, all passing)
 
 ## Coverage Baseline
 
@@ -77,9 +84,9 @@
 
 ### Round Management (8-3%)
 
-- 🔴 `roundService.ts` - 7.57% (bracket logic untested)
-- 🔴 `HistoryTab.tsx` - 4%
-- 🔴 `RoundHistoryCard.tsx` - 3.03%
+- 🔴 `roundService.ts` - 7.57% → **Improved with edit/undo tests** (25 new tests for updateLastRoundResults, undoLastRoundEdit)
+- 🔴 `HistoryTab.tsx` - 4% (edit modal, undo handlers added)
+- 🔴 `RoundHistoryCard.tsx` - 3.03% (edit/undo button controls)
 
 ### Event Management (12%)
 
@@ -119,58 +126,49 @@
 ### Phase 1: Critical Services (Highest Impact)
 
 1. **playerService.ts** (6.75% → 80%)
-
    - Test player CRUD operations
    - Test rank calculations
    - Test import functionality
    - Est. 20 new tests
 
 2. **roundService.ts** (7.57% → 80%)
-
    - Test bracket generation logic
    - Test round-robin scenarios
    - Test scoring and ranking updates
    - Est. 25 new tests
 
 3. **eventService.ts** (22.72% → 80%)
-
    - Test event creation/deletion
    - Test event filtering
    - Est. 15 new tests
 
 4. **LeagueManager.tsx** (1.01% → 60%)
-
    - Test league CRUD UI
    - Test state management integration
    - Est. 12 new tests
 
 5. **PlayersTab.tsx** (50% → 80%)
-
    - Test standings display
    - Test filtering/sorting
    - Est. 8 new tests
 
 6. **App.tsx** (39.71% → 70%)
-
    - Test tab switching
    - Test conditional rendering
    - Test error boundaries
    - Est. 15 new tests
 
 7. **leagueUtils.ts** (2.39% → 60%)
-
    - Test league validation
    - Test season calculations
    - Est. 18 new tests
 
 8. **Hooks** (currently 58-83%)
-
    - Improve usePlayerData.ts (58% → 80%)
    - Test error scenarios
    - Est. 10 new tests
 
 9. **Auth.tsx** (4.34% → 50%)
-
    - Test login/logout flows
    - Test auth state
    - Est. 12 new tests
@@ -223,10 +221,43 @@ To improve coverage systematically, target these incremental goals:
 
 **Current baseline (21% lines):**
 
-- Phase 1: 30% lines (critical services)
+- Phase 1: 30% lines (critical services) ✅ roundService improvements started
 - Phase 2: 40% lines (key components)
 - Phase 3: 55% lines (utilities & hooks)
 - Phase 4: 70% lines (full coverage goal)
+
+## Recent Work & Changes
+
+### Match Notes Feature (Jan 25, 2026)
+
+**Scope:** Added optional text note field to matches for context and commentary
+
+**Files Modified:**
+
+- `types.ts` - Added `note?: string` to RoundDetails scores and DBMatch
+- `Match.tsx` - Single-line note input (below scores, disabled for placeholders)
+- `StaticMatch.tsx` - Display notes as small text below matches in history
+- `EditRoundModal.tsx` - Note tracking and update in edit modal
+- `GroupCard.tsx` - Note input during round setup
+- `GroupRenderingPanel.tsx` - Prop passing for note handlers
+- `LeagueManager.tsx` - Note state management alongside scores
+- `roundService.ts` - Extract/insert notes in generateMatches, include in snapshots
+- `RoundHistoryCard.tsx` - Pass notes to StaticMatch components
+- `leagueUtils.ts` - Updated resolveGroupPlacements type signature
+
+**Data Flow:**
+
+- User input: Match component → onNoteChange callback → Scores state
+- Persistence: Notes embedded in score objects → generateMatches → DB insert
+- Display: Notes fetched from DB → StaticMatch → Rendered below match
+- Edit/Undo: Notes captured in previousDetails snapshot → Restored on undo
+
+**Tests Needed:**
+
+- Note input validation (max length, characters)
+- Note persistence through edit/undo cycles
+- Note display formatting in history
+- Backward compatibility with existing matches (null/undefined notes)
 
 ## Maintenance
 
@@ -242,3 +273,5 @@ To improve coverage systematically, target these incremental goals:
 - Form components need validation testing
 - Error paths (error boundaries, CSRF handling) have low coverage
 - Integration tests exist but don't cover all code paths yet
+- Match notes feature uses embedded data model (notes in scores object) for simplicity
+- Edit/undo mechanism snapshot captures full state including notes for one-level rollback

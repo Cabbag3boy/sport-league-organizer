@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0.91% </span>
+                <span class="strong">0.89% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>1/109</span>
+                <span class='fraction'>1/112</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>0/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">1.01% </span>
+                <span class="strong">0.99% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>1/99</span>
+                <span class='fraction'>1/101</span>
             </div>
         
             
@@ -347,7 +347,18 @@
 <a name='L282'></a><a href='#L282'>282</a>
 <a name='L283'></a><a href='#L283'>283</a>
 <a name='L284'></a><a href='#L284'>284</a>
-<a name='L285'></a><a href='#L285'>285</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a>
+<a name='L291'></a><a href='#L291'>291</a>
+<a name='L292'></a><a href='#L292'>292</a>
+<a name='L293'></a><a href='#L293'>293</a>
+<a name='L294'></a><a href='#L294'>294</a>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -393,6 +404,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -492,13 +506,20 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -594,6 +615,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -651,7 +673,7 @@ interface LeagueManagerProps {
   setPresentPlayerIds: React.Dispatch&lt;React.SetStateAction&lt;Set&lt;string&gt;&gt;&gt;;
   onRoundComplete: (
     finalPlayers: Player[],
-    newHistoryEntry: RoundHistoryEntry
+    newHistoryEntry: RoundHistoryEntry,
   ) =&gt; void;
 }
 &nbsp;
@@ -666,14 +688,17 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
   const [groups, setGroups<span class="cstat-no" title="statement not covered" >] = useState&lt;Group[]&gt;([]);</span>
   const [error, setError<span class="cstat-no" title="statement not covered" >] = useState&lt;string | null&gt;(null);</span>
   const [scores, setScores<span class="cstat-no" title="statement not covered" >] = useState&lt;</span>
-    Record&lt;string, { score1: string; score2: string }&gt;
+    Record&lt;string, { score1: string; score2: string; note?: string }&gt;
   &gt;(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const savedScores = <span class="cstat-no" title="statement not covered" >localStorage.getItem("leagueScores");</span>
 <span class="cstat-no" title="statement not covered" >      if (savedScores) {</span>
         const parsed = <span class="cstat-no" title="statement not covered" >JSON.parse(savedScores) as unknown;</span>
 <span class="cstat-no" title="statement not covered" >        if (typeof parsed === "object" &amp;&amp; parsed !== null) {</span>
-<span class="cstat-no" title="statement not covered" >          return parsed as Record&lt;string, { score1: string; score2: string }&gt;;</span>
+<span class="cstat-no" title="statement not covered" >          return parsed as Record&lt;</span>
+            string,
+            { score1: string; score2: string; note?: string }
+          &gt;;
         }
       }
     } catch (error) {
@@ -723,7 +748,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 <span class="fstat-no" title="function not covered" >            (i</span>d) =&gt;
 <span class="cstat-no" title="statement not covered" >              !scores[id] ||</span>
               scores[id].score1 === "" ||
-              scores[id].score2 === ""
+              scores[id].score2 === "",
           )
         ) {
 <span class="cstat-no" title="statement not covered" >          return false;</span>
@@ -739,7 +764,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 <span class="fstat-no" title="function not covered" >            (i</span>d) =&gt;
 <span class="cstat-no" title="statement not covered" >              !scores[id] ||</span>
               scores[id].score1 === "" ||
-              scores[id].score2 === ""
+              scores[id].score2 === "",
           )
         ) {
 <span class="cstat-no" title="statement not covered" >          return false;</span>
@@ -770,18 +795,25 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 <span class="cstat-no" title="statement not covered" >        return newSet;</span>
       });
     },
-    [setPresentPlayerIds]
+    [setPresentPlayerIds],
   );
 &nbsp;
   const <span class="cstat-no" title="statement not covered" >handleScoreUpdate = useCallback(</span>
 <span class="fstat-no" title="function not covered" >    (m</span>atchId: string, score1: string, score2: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >      setScores(<span class="fstat-no" title="function not covered" >(p</span>revScores) =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
         ...prevScores,
-        [matchId]: { score1, score2 },
+        [matchId]: { ...prevScores[matchId], score1, score2 },
       }));
     },
-    []
+    [],
   );
+&nbsp;
+  const <span class="cstat-no" title="statement not covered" >handleNoteUpdate = useCallback(<span class="fstat-no" title="function not covered" >(m</span>atchId: string, note: string) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    setScores(<span class="fstat-no" title="function not covered" >(p</span>revScores) =&gt; (<span class="cstat-no" title="statement not covered" >{</span></span>
+      ...prevScores,
+      [matchId]: { ...prevScores[matchId], note },
+    }));
+  }, []);
 &nbsp;
   const <span class="cstat-no" title="statement not covered" >generateGroups = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >    setError(null);</span>
@@ -804,14 +836,14 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 <span class="cstat-no" title="statement not covered" >    if (groups.length === 0) <span class="cstat-no" title="statement not covered" >return;</span></span>
 &nbsp;
     const groupPlacements = <span class="cstat-no" title="statement not covered" >groups.map(<span class="fstat-no" title="function not covered" >(g</span>roup, <span class="cstat-no" title="statement not covered" >index) =&gt;</span></span>
-      resolveGroupPlacements(group, index + 1, scores)
+      resolveGroupPlacements(group, index + 1, scores),
     );
 &nbsp;
     const <span class="cstat-no" title="statement not covered" >newPlayerList = calculateNewRanks(</span>
       allPlayers,
       presentPlayers,
       presentPlayerIds,
-      groupPlacements
+      groupPlacements,
     );
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    setPlacementsForReview(groupPlacements);</span>
@@ -828,7 +860,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
       }));
 &nbsp;
       const groupPlacements = <span class="cstat-no" title="statement not covered" >groups.map(<span class="fstat-no" title="function not covered" >(g</span>roup, <span class="cstat-no" title="statement not covered" >index) =&gt;</span></span>
-        resolveGroupPlacements(group, index + 1, scores)
+        resolveGroupPlacements(group, index + 1, scores),
       );
 &nbsp;
       const newHistoryEntry: RoundHistoryEntry = <span class="cstat-no" title="statement not covered" >{</span>
@@ -846,7 +878,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 &nbsp;
       const changes: Record&lt;string, RankChange&gt; = <span class="cstat-no" title="statement not covered" >{};</span>
       const oldPlayerRanks = <span class="cstat-no" title="statement not covered" >new Map&lt;string, number&gt;(</span>
-        playersBeforeRound.map(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >[p.id, p.rank])</span>
+        playersBeforeRound.map(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >[p.id, p.rank])</span>,
       );
 <span class="cstat-no" title="statement not covered" >      finalPlayersWithRanks.forEach(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; {</span>
         const oldRank = <span class="cstat-no" title="statement not covered" >oldPlayerRanks.get(p.id);</span>
@@ -868,7 +900,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
 <span class="cstat-no" title="statement not covered" >        setRankChanges({});</span>
       }, 2500);
     },
-    [allPlayers, groups, scores, onRoundComplete, presentPlayerIds]
+    [allPlayers, groups, scores, onRoundComplete, presentPlayerIds],
   );
 &nbsp;
   const <span class="cstat-no" title="statement not covered" >handleCancelReview = useCallback(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
@@ -908,6 +940,7 @@ const LeagueManager: React.FC&lt;LeagueManagerProps&gt; = <span class="fstat-no"
         scores={scores}
         allMatchesScored={allMatchesScored}
         onScoreUpdate={handleScoreUpdate}
+        onNoteUpdate={handleNoteUpdate}
         onFinishRound={handleFinishRound}
       /&gt;
     &lt;/div&gt;
@@ -922,7 +955,7 @@ export default LeagueManager;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-19T15:02:27.322Z
+                at 2026-01-25T18:12:40.506Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

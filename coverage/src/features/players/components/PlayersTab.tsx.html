@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">46.15% </span>
+                <span class="strong">7.69% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/13</span>
+                <span class='fraction'>1/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">31.25% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/16</span>
+                <span class='fraction'>0/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">28.57% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/7</span>
+                <span class='fraction'>0/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">8.33% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/12</span>
+                <span class='fraction'>1/12</span>
             </div>
         
             
@@ -193,21 +193,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -293,7 +293,7 @@ interface PlayersTabProps {
   isAuthenticated: boolean;
 }
 &nbsp;
-const PlayersTab: React.FC&lt;PlayersTabProps&gt; = ({
+const PlayersTab: React.FC&lt;PlayersTabProps&gt; = <span class="fstat-no" title="function not covered" >({</span>
   players,
   calculatedStats,
   calculatedStreaks,
@@ -301,21 +301,21 @@ const PlayersTab: React.FC&lt;PlayersTabProps&gt; = ({
   onUpdatePlayer,
   isAuthenticated,
 }) =&gt; {
-  const [playerIdToRemove, setPlayerIdToRemove] = useState&lt;string | null&gt;(null);
+  const [playerIdToRemove, setPlayerIdToRemove<span class="cstat-no" title="statement not covered" >] = useState&lt;string | null&gt;(null);</span>
 &nbsp;
-  const playerToRemove = useMemo(
-    () =&gt; players.find(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.id === playerIdToRemove)</span> || null,
+  const <span class="cstat-no" title="statement not covered" >playerToRemove = useMemo(</span>
+<span class="fstat-no" title="function not covered" >    () =&gt; <span class="cstat-no" title="statement not covered" >p</span>layers.find(<span class="fstat-no" title="function not covered" >(p</span>) =&gt; <span class="cstat-no" title="statement not covered" >p.id === playerIdToRemove)</span> || null,</span>
     [players, playerIdToRemove]
   );
 &nbsp;
-  const handleConfirmRemove = <span class="fstat-no" title="function not covered" >() =&gt; {</span>
+  const handleConfirmRemove = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >    if (playerIdToRemove !== null &amp;&amp; isAuthenticated) {</span>
 <span class="cstat-no" title="statement not covered" >      onRemovePlayer(playerIdToRemove);</span>
 <span class="cstat-no" title="statement not covered" >      setPlayerIdToRemove(null);</span>
     }
   };
 &nbsp;
-  return (
+<span class="cstat-no" title="statement not covered" >  return (</span>
     &lt;div className="space-y-6"&gt;
       &lt;ConfirmModal
         isOpen={!!playerToRemove}
@@ -341,7 +341,7 @@ const PlayersTab: React.FC&lt;PlayersTabProps&gt; = ({
                   Série
                 &lt;/th&gt;
                 {isAuthenticated &amp;&amp; (
-<span class="branch-1 cbranch-no" title="branch not covered" >                  &lt;th className="p-4 w-24 text-center"&gt;Akce&lt;/th&gt;</span>
+                  &lt;th className="p-4 w-24 text-center"&gt;Akce&lt;/th&gt;
                 )}
               &lt;/tr&gt;
             &lt;/thead&gt;
@@ -394,7 +394,7 @@ export default PlayersTab;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-19T15:02:27.322Z
+                at 2026-01-25T18:12:40.506Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
