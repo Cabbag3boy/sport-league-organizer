@@ -1,7 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import type { DBEvent } from "../../../types";
 import EventCard from "./EventCard";
 import AddEventForm from "./AddEventForm";
+import EditEventModal from "./EditEventModal";
+import { updateEvent } from "../services/eventService";
+import { useCsrfHandler } from "../../auth/hooks/useCsrfHandler";
 
 interface EventsTabProps {
   events: DBEvent[];
@@ -9,6 +12,7 @@ interface EventsTabProps {
   onAddEvent: (title: string, content: string, pinned: boolean) => void;
   onDeleteEvent: (id: string) => void;
   onTogglePin: (id: string, currentPinned: boolean) => void;
+  onUpdateEvent: (events: DBEvent[]) => void;
 }
 
 const EventsTab: React.FC<EventsTabProps> = ({
@@ -17,9 +21,56 @@ const EventsTab: React.FC<EventsTabProps> = ({
   onAddEvent,
   onDeleteEvent,
   onTogglePin,
+  onUpdateEvent,
 }) => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<DBEvent | null>(null);
+  const { executeWithCsrf } = useCsrfHandler();
+
+  const handleEditEvent = (event: DBEvent) => {
+    if (!isAuthenticated) return;
+    setEventToEdit(event);
+    setIsEditModalOpen(true);
+  };
+
+  const handleConfirmEdit = async (data: {
+    title: string;
+    content: string;
+    pinned: boolean;
+  }) => {
+    if (!isAuthenticated || !eventToEdit) return;
+
+    await executeWithCsrf(async () => {
+      const updatedEvent = await updateEvent({
+        eventId: eventToEdit.id,
+        title: data.title,
+        content: data.content,
+        pinned: data.pinned,
+      });
+
+      if (updatedEvent) {
+        onUpdateEvent(
+          events.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)),
+        );
+        setIsEditModalOpen(false);
+        setEventToEdit(null);
+      }
+    });
+  };
+
+  const handleCloseModal = () => {
+    setIsEditModalOpen(false);
+    setEventToEdit(null);
+  };
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <EditEventModal
+        isOpen={isEditModalOpen}
+        event={eventToEdit}
+        onConfirm={handleConfirmEdit}
+        onCancel={handleCloseModal}
+      />
+
       {isAuthenticated && (
         <section className="bg-gray-800/40 p-6 rounded-2xl border border-indigo-500/20 shadow-xl">
           <h2 className="text-xl font-bold text-indigo-400 mb-4 flex items-center gap-2">
@@ -58,6 +109,7 @@ const EventsTab: React.FC<EventsTabProps> = ({
               isAdmin={isAuthenticated}
               onDelete={onDeleteEvent}
               onTogglePin={onTogglePin}
+              onEditEvent={handleEditEvent}
             />
           ))
         )}
@@ -67,4 +119,3 @@ const EventsTab: React.FC<EventsTabProps> = ({
 };
 
 export default EventsTab;
-

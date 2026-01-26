@@ -165,6 +165,13 @@ export interface CreateEventInput {
   pinned: boolean;
 }
 
+export interface UpdateEventInput {
+  eventId: string;
+  title?: string;
+  content?: string;
+  pinned?: boolean;
+}
+
 export interface DeleteEventInput {
   eventId: string;
 }

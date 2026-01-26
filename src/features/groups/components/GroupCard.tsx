@@ -57,7 +57,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
         <>
           <div>
             <h4 className="font-semibold text-gray-300 mb-2 text-sm">
-              Round 1
+              1. Kolo
             </h4>
             <ul className="space-y-2">
               <Match
@@ -84,12 +84,12 @@ const GroupCard: React.FC<GroupCardProps> = ({
           </div>
           <div>
             <h4 className="font-semibold text-gray-300 mt-4 mb-2 text-sm">
-              Round 2
+              2. Kolo
             </h4>
             <ul className="space-y-2">
               <Match
-                player1Name={winner1 ? winner1.name : "Winner (R1 M1)"}
-                player2Name={winner2 ? winner2.name : "Winner (R1 M2)"}
+                player1Name={winner1 ? winner1.name : "Vítěz (K1 Z1)"}
+                player2Name={winner2 ? winner2.name : "Vítěz (K1 Z2)"}
                 score1={r2m1Scores.score1}
                 score2={r2m1Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m1Id, s1, s2)}
@@ -98,8 +98,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 isPlaceholder={!winner1 || !winner2}
               />
               <Match
-                player1Name={loser1 ? loser1.name : "Loser (R1 M1)"}
-                player2Name={loser2 ? loser2.name : "Loser (R1 M2)"}
+                player1Name={loser1 ? loser1.name : "Poražený (K1 Z1)"}
+                player2Name={loser2 ? loser2.name : "Poražený (K1 Z2)"}
                 score1={r2m2Scores.score1}
                 score2={r2m2Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m2Id, s1, s2)}
@@ -126,7 +126,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
       return (
         <div>
           <h4 className="font-semibold text-gray-300 mb-2 text-sm">
-            Round Robin
+            Každý s každým
           </h4>
           <ul className="space-y-2">
             <Match
@@ -171,7 +171,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
 
       return (
         <div>
-          <h4 className="font-semibold text-gray-300 mb-2 text-sm">Match</h4>
+          <h4 className="font-semibold text-gray-300 mb-2 text-sm">Zápas</h4>
           <ul className="space-y-2">
             <Match
               player1Name={p1?.name || ""}
@@ -194,7 +194,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   return (
     <div className="bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-indigo-500/20 transition-shadow duration-300 flex flex-col">
       <h3 className="text-lg font-bold text-indigo-400 mb-4 border-b border-gray-700 pb-2">
-        Group {groupNumber}
+        Skupina {groupNumber}
       </h3>
       <div className="space-y-4 flex-grow">{renderMatches()}</div>
     </div>

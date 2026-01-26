@@ -400,6 +400,7 @@ const AppContent: React.FC = () => {
               onAddEvent={handleCreateEvent}
               onDeleteEvent={handleDeleteEvent}
               onTogglePin={handleToggleEventPin}
+              onUpdateEvent={setEvents}
             />
           </ErrorBoundary>
         )}

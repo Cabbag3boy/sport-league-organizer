@@ -6,6 +6,7 @@ interface EventCardProps {
   isAdmin: boolean;
   onDelete: (id: string) => void;
   onTogglePin: (id: string, currentPinned: boolean) => void;
+  onEditEvent?: (event: DBEvent) => void;
 }
 
 const EventCard: React.FC<EventCardProps> = ({
@@ -13,6 +14,7 @@ const EventCard: React.FC<EventCardProps> = ({
   isAdmin,
   onDelete,
   onTogglePin,
+  onEditEvent,
 }) => {
   const dateStr = new Date(event.created_at).toLocaleString("cs-CZ", {
     day: "numeric",
@@ -59,6 +61,26 @@ const EventCard: React.FC<EventCardProps> = ({
 
       {isAdmin && (
         <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-gray-700/50">
+          <button
+            onClick={() => onEditEvent?.(event)}
+            className="p-2 text-gray-500 hover:text-indigo-400 hover:bg-indigo-400/10 rounded-lg transition-colors"
+            title="Upravit událost"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
           <button
             onClick={() => onTogglePin(event.id, !!event.pinned)}
             className={`p-2 rounded-lg transition-colors ${
@@ -114,4 +136,3 @@ const EventCard: React.FC<EventCardProps> = ({
 };
 
 export default EventCard;
-
