@@ -440,6 +440,7 @@ const AppContent: React.FC = () => {
               calculatedStreaks={
                 calculateStandings(players as Player[], roundHistory).streaks
               }
+              roundHistory={roundHistory}
               onRemovePlayer={handleRemovePlayer}
               onUpdatePlayer={handleUpdatePlayer}
               isAuthenticated={isAuthenticated}

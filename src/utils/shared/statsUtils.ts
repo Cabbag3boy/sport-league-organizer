@@ -10,7 +10,7 @@ import type {
  */
 export const calculateStandings = (
   players: Player[],
-  roundHistory: RoundHistoryEntry[]
+  roundHistory: RoundHistoryEntry[],
 ) => {
   const stats: Record<string, PlayerStats> = {};
   const streaks: Record<string, Streaks> = {};
@@ -154,3 +154,58 @@ export const calculateStandings = (
   return { stats, streaks };
 };
 
+/**
+ * Calculates player rank progression from their first round of participation to current rank.
+ * Progression = starting rank - current rank (positive = improvement)
+ * Only includes players currently in the league.
+ */
+export const calculatePlayerProgression = (
+  players: Player[],
+  roundHistory: RoundHistoryEntry[],
+): Record<string, number> => {
+  const progression: Record<string, number> = {};
+
+  // Create a set of current player IDs for filtering
+  const currentPlayerIds = new Set(players.map((p) => p.id));
+
+  // Initialize progression for all current players
+  players.forEach((p) => {
+    progression[p.id] = 0;
+  });
+
+  // Guard against empty or undefined roundHistory
+  if (!roundHistory || roundHistory.length === 0) {
+    return progression;
+  }
+
+  // Sort history chronologically: oldest first
+  const sortedHistory = [...roundHistory].sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  // Find first participation round for each player and extract starting rank
+  const playerStartingRanks: Record<string, number> = {};
+
+  sortedHistory.forEach((round) => {
+    // Only process if playersBefore exists
+    if (!round.playersBefore) return;
+
+    round.playersBefore.forEach((player) => {
+      // Only track players who are currently in the league
+      if (currentPlayerIds.has(player.id) && !playerStartingRanks[player.id]) {
+        playerStartingRanks[player.id] = player.rank;
+      }
+    });
+  });
+
+  // Calculate progression for each player
+  players.forEach((player) => {
+    const startingRank = playerStartingRanks[player.id];
+    if (startingRank !== undefined) {
+      // Positive progression = moved up (rank decreased)
+      progression[player.id] = startingRank - player.rank;
+    }
+  });
+
+  return progression;
+};
