@@ -1,0 +1,211 @@
+import type {
+  Player,
+  RoundHistoryEntry,
+  PlayerStats,
+  Streaks,
+} from "../../types";
+
+/**
+ * Calculates detailed statistics and streaks for all players based on the complete round history.
+ */
+export const calculateStandings = (
+  players: Player[],
+  roundHistory: RoundHistoryEntry[],
+) => {
+  const stats: Record<string, PlayerStats> = {};
+  const streaks: Record<string, Streaks> = {};
+  const outcomes: Record<string, ("W" | "L" | "T")[]> = {};
+
+  // Initialize data structures for each current player
+  players.forEach((p) => {
+    stats[p.id] = { wins: 0, losses: 0, matches: 0 };
+    streaks[p.id] = { winStreak: 0, lossStreak: 0 };
+    outcomes[p.id] = [];
+  });
+
+  // Guard against undefined or empty roundHistory
+  if (!roundHistory || roundHistory.length === 0) {
+    return { stats, streaks };
+  }
+
+  // Sort history chronologically: Oldest first to ensure correct streak calculation
+  const sortedHistory = [...roundHistory].sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  sortedHistory.forEach((round) => {
+    const scores = round.scores;
+    if (!round.groups) return;
+
+    round.groups.forEach((group, gIdx) => {
+      const gNum = gIdx + 1;
+
+      const recordMatch = (p1: Player, p2: Player, s1: string, s2: string) => {
+        if (!s1 || !s2 || s1 === "" || s2 === "") return;
+        const score1 = parseInt(s1, 10);
+        const score2 = parseInt(s2, 10);
+        if (isNaN(score1) || isNaN(score2)) return;
+
+        // Only track for players currently in the system
+        const p1Exists = !!stats[p1.id];
+        const p2Exists = !!stats[p2.id];
+
+        if (p1Exists) stats[p1.id]!.matches++;
+        if (p2Exists) stats[p2.id]!.matches++;
+
+        if (score1 > score2) {
+          if (p1Exists) {
+            stats[p1.id]!.wins++;
+            outcomes[p1.id]!.push("W");
+          }
+          if (p2Exists) {
+            stats[p2.id]!.losses++;
+            outcomes[p2.id]!.push("L");
+          }
+        } else if (score2 > score1) {
+          if (p2Exists) {
+            stats[p2.id]!.wins++;
+            outcomes[p2.id]!.push("W");
+          }
+          if (p1Exists) {
+            stats[p1.id]!.losses++;
+            outcomes[p1.id]!.push("L");
+          }
+        } else {
+          // Tie scenario
+          if (p1Exists) outcomes[p1.id]!.push("T");
+          if (p2Exists) outcomes[p2.id]!.push("T");
+        }
+      };
+
+      if (group.length === 4) {
+        const [p1, p2, p3, p4] = group as [Player, Player, Player, Player];
+        const m1 = scores[`g${gNum}-r1-m1`];
+        const m2 = scores[`g${gNum}-r1-m2`];
+        if (m1) recordMatch(p1, p4!, m1.score1, m1.score2);
+        if (m2) recordMatch(p2!, p3, m2.score1, m2.score2);
+
+        if (
+          m1 &&
+          m2 &&
+          m1.score1 !== "" &&
+          m1.score2 !== "" &&
+          m2.score1 !== "" &&
+          m2.score2 !== ""
+        ) {
+          const w1 = parseInt(m1.score1) > parseInt(m1.score2) ? p1 : p4!;
+          const l1 = parseInt(m1.score1) > parseInt(m1.score2) ? p4! : p1;
+          const w2 = parseInt(m2.score1) > parseInt(m2.score2) ? p2! : p3;
+          const l2 = parseInt(m2.score1) > parseInt(m2.score2) ? p3 : p2!;
+
+          const m3 = scores[`g${gNum}-r2-m1`];
+          const m4 = scores[`g${gNum}-r2-m2`];
+          if (m3) recordMatch(w1, w2, m3.score1, m3.score2);
+          if (m4) recordMatch(l1, l2, m4.score1, m4.score2);
+        }
+      } else if (group.length === 3) {
+        const [p1, p2, p3] = group as [Player, Player, Player];
+        const m1 = scores[`g${gNum}-m1`];
+        const m2 = scores[`g${gNum}-m2`];
+        const m3 = scores[`g${gNum}-m3`];
+        if (m1) recordMatch(p1, p2, m1.score1, m1.score2);
+        if (m2) recordMatch(p1, p3, m2.score1, m2.score2);
+        if (m3) recordMatch(p2, p3, m3.score1, m3.score2);
+      } else if (group.length === 2) {
+        const [p1, p2] = group as [Player, Player];
+        const m1 = scores[`g${gNum}-m1`];
+        if (m1) recordMatch(p1, p2, m1.score1, m1.score2);
+      }
+    });
+  });
+
+  // Streak Calculation: Accurately identify the current consecutive stretch of Ws or Ls
+  players.forEach((p) => {
+    const results = outcomes[p.id];
+    if (!results || results.length === 0) return;
+
+    let streakCount = 0;
+    const lastResult = results[results.length - 1];
+
+    // Count backwards from the most recent match
+    // Only consecutive identical results from the end of the history count as a streak
+    for (let i = results.length - 1; i >= 0; i--) {
+      if (
+        results[i] === lastResult &&
+        (lastResult === "W" || lastResult === "L")
+      ) {
+        streakCount++;
+      } else {
+        // A different result (W vs L vs T) breaks the streak
+        break;
+      }
+    }
+
+    if (lastResult === "W") {
+      streaks[p.id] = { winStreak: streakCount, lossStreak: 0 };
+    } else if (lastResult === "L") {
+      streaks[p.id] = { winStreak: 0, lossStreak: streakCount };
+    } else {
+      // Tied last match results in 0 current streak for both categories
+      streaks[p.id] = { winStreak: 0, lossStreak: 0 };
+    }
+  });
+
+  return { stats, streaks };
+};
+
+/**
+ * Calculates player rank progression from their first round of participation to current rank.
+ * Progression = starting rank - current rank (positive = improvement)
+ * Only includes players currently in the league.
+ */
+export const calculatePlayerProgression = (
+  players: Player[],
+  roundHistory: RoundHistoryEntry[],
+): Record<string, number> => {
+  const progression: Record<string, number> = {};
+
+  // Create a set of current player IDs for filtering
+  const currentPlayerIds = new Set(players.map((p) => p.id));
+
+  // Initialize progression for all current players
+  players.forEach((p) => {
+    progression[p.id] = 0;
+  });
+
+  // Guard against empty or undefined roundHistory
+  if (!roundHistory || roundHistory.length === 0) {
+    return progression;
+  }
+
+  // Sort history chronologically: oldest first
+  const sortedHistory = [...roundHistory].sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  // Find first participation round for each player and extract starting rank
+  const playerStartingRanks: Record<string, number> = {};
+
+  sortedHistory.forEach((round) => {
+    // Only process if playersBefore exists
+    if (!round.playersBefore) return;
+
+    round.playersBefore.forEach((player) => {
+      // Only track players who are currently in the league
+      if (currentPlayerIds.has(player.id) && !playerStartingRanks[player.id]) {
+        playerStartingRanks[player.id] = player.rank;
+      }
+    });
+  });
+
+  // Calculate progression for each player
+  players.forEach((player) => {
+    const startingRank = playerStartingRanks[player.id];
+    if (startingRank !== undefined) {
+      // Positive progression = moved up (rank decreased)
+      progression[player.id] = startingRank - player.rank;
+    }
+  });
+
+  return progression;
+};
