@@ -67,6 +67,15 @@ const ProgressionTab: React.FC<ProgressionTabProps> = ({
 
   return (
     <div className="space-y-6">
+      <div className="bg-amber-950/20 backdrop-blur-sm rounded-xl border border-amber-700/30 p-4 shadow-lg">
+        <p
+          id="skokan-oznameni"
+          className="text-amber-100 text-sm font-medium leading-relaxed"
+        >
+          Logika výpočtu skokana sezóny není finální. Pořadí se může mírně lišit
+          od skutečného pořadí.
+        </p>
+      </div>
       <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[700px]">

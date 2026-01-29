@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { Player, RoundHistoryEntry, DBPlayer, DBEvent } from "@/types";
 import { LeagueManager } from "@/features/league/components";
 import { Header, SetupTab } from "@/features/layout/components";
@@ -51,6 +51,7 @@ const AppContent: React.FC = () => {
   const [presentPlayerIds, setPresentPlayerIds] = useState<Set<string>>(
     new Set(),
   );
+  const initialFetchDoneRef = useRef(false);
 
   const isAuthenticated = !!session;
   const supabase = getSupabase();
@@ -126,6 +127,16 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const runInitialFetch = () => {
+    if (initialFetchDoneRef.current) return;
+    initialFetchDoneRef.current = true;
+
+    const { currentLeagueId: storedLeagueId, currentSeasonId: storedSeasonId } =
+      useLeagueStore.getState();
+
+    fetchData(storedLeagueId ?? undefined, storedSeasonId ?? undefined, true);
+  };
+
   useEffect(() => {
     initializeCsrfToken();
 
@@ -136,6 +147,7 @@ const AppContent: React.FC = () => {
       if (session) {
         useAuthStore.setState({ session });
       }
+      runInitialFetch();
     });
 
     const {
@@ -144,6 +156,9 @@ const AppContent: React.FC = () => {
       useAuthStore.setState({ session: currentSession });
 
       // Handle auth state changes
+      if (event === "INITIAL_SESSION") {
+        runInitialFetch();
+      }
       if (event === "SIGNED_IN" && currentSession) {
         setShowLogin(false);
         setDbError(null);
@@ -459,7 +474,12 @@ const AppContent: React.FC = () => {
               roundHistory={roundHistory}
               isAuthenticated={isAuthenticated}
               currentLeagueId={currentLeagueId}
-              onRefresh={() => fetchData(currentLeagueId, currentSeasonId)}
+              onRefresh={() =>
+                fetchData(
+                  currentLeagueId ?? undefined,
+                  currentSeasonId ?? undefined,
+                )
+              }
             />
           </ErrorBoundary>
         )}
