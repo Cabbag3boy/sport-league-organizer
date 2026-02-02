@@ -1,0 +1,12 @@
+# League Master - Robots Configuration
+# https://www.robotstxt.org/
+
+User-agent: *
+Allow: /
+Disallow: /admin*
+
+# Crawl delay in seconds
+Crawl-delay: 1
+
+# Sitemaps
+Sitemap: https://www.leaguemaster.cz/sitemap.xml
