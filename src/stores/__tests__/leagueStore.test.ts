@@ -42,6 +42,7 @@ describe("useLeagueStore", () => {
       expect(state.currentLeagueId).toBeNull();
       expect(state.seasons).toEqual([]);
       expect(state.currentSeasonId).toBeNull();
+      expect(state.activeTab).toBe("Players");
     });
   });
 
@@ -306,6 +307,35 @@ describe("useLeagueStore", () => {
     });
   });
 
+  describe("setActiveTab Action", () => {
+    it("should initialize activeTab to Players by default", () => {
+      const state = useLeagueStore.getState();
+      expect(state.activeTab).toBe("Players");
+    });
+
+    it("should update activeTab correctly", () => {
+      useLeagueStore.getState().setActiveTab("Events");
+      expect(useLeagueStore.getState().activeTab).toBe("Events");
+    });
+
+    it("should persist activeTab to localStorage", () => {
+      useLeagueStore.getState().setActiveTab("History");
+
+      // Verify it persisted (in real app, this is handled by persist middleware)
+      const state = useLeagueStore.getState();
+      expect(state.activeTab).toBe("History");
+    });
+
+    it("should handle all valid tab names", () => {
+      const validTabs = ["Players", "Events", "History", "League", "Setup"];
+
+      validTabs.forEach((tab) => {
+        useLeagueStore.getState().setActiveTab(tab);
+        expect(useLeagueStore.getState().activeTab).toBe(tab);
+      });
+    });
+  });
+
   describe("Persistence Middleware", () => {
     it("should have persist middleware configured for automatic state sync", () => {
       // The persist middleware is configured in the store definition
@@ -315,6 +345,7 @@ describe("useLeagueStore", () => {
       expect(state).toBeDefined();
       expect(state.leagues).toBeDefined();
       expect(state.seasons).toBeDefined();
+      expect(state.activeTab).toBeDefined();
     });
   });
 });

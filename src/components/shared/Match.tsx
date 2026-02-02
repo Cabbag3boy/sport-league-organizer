@@ -89,7 +89,7 @@ const Match: React.FC<MatchProps> = ({
           type="text"
           value={note}
           onChange={handleNoteChange}
-          placeholder="Note (optional)"
+          placeholder="Poznámka"
           className="mt-2 w-full bg-gray-700 text-white text-sm rounded-md p-1 px-2 focus:ring-1 focus:ring-indigo-500 outline-none placeholder-gray-500 transition-colors"
           aria-label="Match note"
         />

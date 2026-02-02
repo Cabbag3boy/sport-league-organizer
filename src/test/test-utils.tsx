@@ -1,6 +1,7 @@
 import { render, RenderOptions } from "@testing-library/react";
 import React, { ReactElement } from "react";
 import { useAuthStore } from "../stores";
+import { resetAllStores } from "../stores/__tests__/setup";
 import type { Session } from "@supabase/supabase-js";
 
 interface CustomRenderOptions extends Omit<RenderOptions, "wrapper"> {
@@ -9,9 +10,12 @@ interface CustomRenderOptions extends Omit<RenderOptions, "wrapper"> {
 
 export const renderWithProviders = (
   ui: ReactElement,
-  { session = null, ...renderOptions }: CustomRenderOptions = {}
+  { session = null, ...renderOptions }: CustomRenderOptions = {},
 ) => {
-  // Initialize auth store with session
+  // Reset all stores to clean state for test isolation
+  resetAllStores();
+
+  // Initialize auth store with session if provided
   if (session) {
     useAuthStore.setState({ session });
   }
@@ -24,4 +28,3 @@ export const renderWithProviders = (
 
 export * from "@testing-library/react";
 export { renderWithProviders as render };
-

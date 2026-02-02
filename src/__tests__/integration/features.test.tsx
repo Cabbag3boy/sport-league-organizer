@@ -39,7 +39,7 @@ describe("Feature: Player Management", () => {
     });
 
     mockSupabase.from.mockImplementation(() =>
-      createMockQueryBuilder([], null)
+      createMockQueryBuilder([], null),
     );
   });
 
@@ -89,7 +89,7 @@ describe("Feature: Round Management", () => {
     });
 
     mockSupabase.from.mockImplementation(() =>
-      createMockQueryBuilder([], null)
+      createMockQueryBuilder([], null),
     );
   });
 
@@ -131,7 +131,7 @@ describe("Feature: Event Management", () => {
     });
 
     mockSupabase.from.mockImplementation(() =>
-      createMockQueryBuilder([], null)
+      createMockQueryBuilder([], null),
     );
   });
 
@@ -139,7 +139,7 @@ describe("Feature: Event Management", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(mockSupabase.auth.getSession).toHaveBeenCalled();
+      expect(mockSupabase.auth.onAuthStateChange).toHaveBeenCalled();
     });
   });
 });
@@ -173,7 +173,7 @@ describe("Feature: Authentication & Security", () => {
     });
 
     mockSupabase.from.mockImplementation(() =>
-      createMockQueryBuilder([], null)
+      createMockQueryBuilder([], null),
     );
   });
 
@@ -181,7 +181,7 @@ describe("Feature: Authentication & Security", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(mockSupabase.auth.getSession).toHaveBeenCalled();
+      expect(mockSupabase.auth.onAuthStateChange).toHaveBeenCalled();
     });
   });
 

@@ -19,6 +19,7 @@ export const resetLeagueStore = () => {
     currentLeagueId: null,
     seasons: [],
     currentSeasonId: null,
+    activeTab: "Players",
   });
 };
 

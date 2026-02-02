@@ -33,14 +33,14 @@ const AppContent: React.FC = () => {
   const setCurrentSeasonId = useLeagueStore(
     (state) => state.setCurrentSeasonId,
   );
+  const activeTab = useLeagueStore((state) => state.activeTab);
+  const setActiveTab = useLeagueStore((state) => state.setActiveTab);
   const { toast, showToast, clearToast, handleSecurityError } =
     useNotification();
   const { executeWithCsrf } = useCsrfHandler();
   const { fetchCompleteData } = useLeagueDataFetch();
   const { addPlayer, addExistingPlayer, removePlayer, updatePlayer } =
     usePlayerData();
-
-  const [activeTab, setActiveTab] = useState<string>("Players");
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [players, setPlayers] = useState<DBPlayer[]>([]);
   const [allGlobalPlayers, setAllGlobalPlayers] = useState<DBPlayer[]>([]);
@@ -52,6 +52,10 @@ const AppContent: React.FC = () => {
     new Set(),
   );
   const initialFetchDoneRef = useRef(false);
+  // Track if we're still in the initial auth check phase
+  // Set to false once INITIAL_SESSION is processed to distinguish from actual sign-in events
+  const isInitialAuthCheckRef = useRef(true);
+  const showLoginRef = useRef(false);
 
   const isAuthenticated = !!session;
   const supabase = getSupabase();
@@ -131,41 +135,59 @@ const AppContent: React.FC = () => {
     if (initialFetchDoneRef.current) return;
     initialFetchDoneRef.current = true;
 
-    const { currentLeagueId: storedLeagueId, currentSeasonId: storedSeasonId } =
-      useLeagueStore.getState();
+    const {
+      currentLeagueId: storedLeagueId,
+      currentSeasonId: storedSeasonId,
+      activeTab: storedActiveTab,
+    } = useLeagueStore.getState();
 
     fetchData(storedLeagueId ?? undefined, storedSeasonId ?? undefined, true);
+
+    // Restore active tab after data loads, with fallback to Players if invalid
+    const validTabs = ["Players", "Events", "History", "League", "Setup"];
+    if (storedActiveTab && validTabs.includes(storedActiveTab)) {
+      setActiveTab(storedActiveTab);
+    } else {
+      setActiveTab("Players");
+    }
   };
+
+  // Keep showLoginRef in sync with showLogin state for use in auth listener
+  useEffect(() => {
+    showLoginRef.current = showLogin;
+  }, [showLogin]);
 
   useEffect(() => {
     initializeCsrfToken();
 
     if (!supabase) return;
 
-    // Get current session from localStorage (if persisted)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        useAuthStore.setState({ session });
-      }
-      runInitialFetch();
-    });
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      // Always update session in store
       useAuthStore.setState({ session: currentSession });
 
       // Handle auth state changes
       if (event === "INITIAL_SESSION") {
+        // Initial session check - run data fetch and mark check as complete
         runInitialFetch();
-      }
-      if (event === "SIGNED_IN" && currentSession) {
-        setShowLogin(false);
-        setDbError(null);
-        showToast("Přihlášení proběhlo úspěšně.");
-        // Refresh data when user signs in
-        fetchData(undefined, undefined, true);
+        // Now that we've processed initial session, mark auth check as done
+        // This prevents SIGNED_IN event from showing toast if it comes after INITIAL_SESSION
+        isInitialAuthCheckRef.current = false;
+      } else if (event === "SIGNED_IN" && currentSession) {
+        // User signed in - only show feedback if login modal was showing
+        // This prevents spurious toasts on tab switch or session rehydration
+        if (showLoginRef.current) {
+          setShowLogin(false);
+          setDbError(null);
+          showToast("Přihlášení proběhlo úspěšně.");
+          // Refresh data when user signs in
+          fetchData(undefined, undefined, true);
+        }
+        // Otherwise silently update session (happens on tab switch or rehydration)
       } else if (event === "SIGNED_OUT") {
+        // User signed out
         setShowLogin(false);
         setDbError(null);
         showToast("Odhlášení bylo úspěšné.");
@@ -584,28 +606,6 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  const setSession = useAuthStore((state) => state.setSession);
-
-  const supabase = getSupabase();
-
-  useEffect(() => {
-    if (!supabase) return;
-
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: currentSession } }) =>
-        setSession(currentSession),
-      );
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase, setSession]);
-
   return (
     <ErrorBoundary
       componentName="App (Global)"

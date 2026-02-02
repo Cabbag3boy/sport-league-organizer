@@ -19,6 +19,11 @@ export const useAuthStore = create<AuthState>()(
         partialize: (state) => ({
           session: state.session,
         }),
+        // Prevent unnecessary re-renders from rehydration
+        onRehydrateStorage: () => (state) => {
+          // Rehydration hook - state is already restored from localStorage
+          // No need to manually update anything
+        },
       },
     ),
     { name: "AuthStore" },

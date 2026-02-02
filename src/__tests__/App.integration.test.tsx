@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import App from "../App";
 import { render } from "../test/test-utils";
 import { getSupabase } from "../utils/supabase";
+import { createMockQueryBuilder } from "../test/supabase-mock";
 
 vi.mock("../utils/supabase", () => ({
   getSupabase: vi.fn(),
@@ -35,6 +36,10 @@ describe("App Integration Tests", () => {
         data: { subscription: { unsubscribe: vi.fn() } },
       };
     });
+    // Mock the from method to return a chainable query builder
+    mockSupabase.from.mockImplementation(() =>
+      createMockQueryBuilder([], null),
+    );
   });
 
   it("should render app with unauthenticated state", async () => {
