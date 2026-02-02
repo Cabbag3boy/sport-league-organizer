@@ -2,7 +2,7 @@
   "version": 2,
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/:path(.*)",
       "headers": [
         {
           "key": "Strict-Transport-Security",
@@ -37,7 +37,7 @@
   ],
   "rewrites": [
     {
-      "source": "/.*",
+      "source": "/:path(.*)",
       "destination": "/index.html"
     }
   ]
