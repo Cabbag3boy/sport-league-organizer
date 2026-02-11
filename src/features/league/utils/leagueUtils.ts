@@ -101,10 +101,18 @@ export const resolveGroupPlacements = (
     const winner2 = getWinner(p2, p3, r1m2Scores);
     const loser2 = winner2.id === p2.id ? p3 : p2;
 
-    const finalWinner = getWinner(winner1, winner2, r2m1Scores);
-    const finalRunnerUp = finalWinner.id === winner1.id ? winner2 : winner1;
-    const thirdPlace = getWinner(loser1, loser2, r2m2Scores);
-    const fourthPlace = thirdPlace.id === loser1.id ? loser2 : loser1;
+    // Sort round 2 matches by initial rank for consistent positioning
+    const [higherWinner, lowerWinner] =
+      winner1.rank <= winner2.rank ? [winner1, winner2] : [winner2, winner1];
+    const [higherLoser, lowerLoser] =
+      loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
+
+    const finalWinner = getWinner(higherWinner, lowerWinner, r2m1Scores);
+    const finalRunnerUp =
+      finalWinner.id === higherWinner.id ? lowerWinner : higherWinner;
+    const thirdPlace = getWinner(higherLoser, lowerLoser, r2m2Scores);
+    const fourthPlace =
+      thirdPlace.id === higherLoser.id ? lowerLoser : higherLoser;
 
     return [finalWinner, finalRunnerUp, thirdPlace, fourthPlace];
   } else if (group.length === 3) {

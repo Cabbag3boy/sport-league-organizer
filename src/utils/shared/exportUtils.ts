@@ -11,11 +11,11 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
     const formatMatch = (
       p1Name: string,
       p2Name: string,
-      score: { score1: string; score2: string } | undefined
+      score: { score1: string; score2: string } | undefined,
     ): void => {
       if (!score || score.score1 === "" || score.score2 === "") return;
       matchStrings.push(
-        `${p1Name} - ${p2Name} ${score.score1}:${score.score2}`
+        `${p1Name} - ${p2Name} ${score.score1}:${score.score2}`,
       );
     };
 
@@ -53,15 +53,18 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
         }
       }
 
+      // Sort round 2 matches by initial rank
       if (winner1 && winner2) {
-        formatMatch(
-          winner1.name,
-          winner2.name,
-          scores[`g${groupNumber}-r2-m1`]
-        );
+        const [higher, lower] =
+          winner1.rank <= winner2.rank
+            ? [winner1, winner2]
+            : [winner2, winner1];
+        formatMatch(higher.name, lower.name, scores[`g${groupNumber}-r2-m1`]);
       }
       if (loser1 && loser2) {
-        formatMatch(loser1.name, loser2.name, scores[`g${groupNumber}-r2-m2`]);
+        const [higher, lower] =
+          loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
+        formatMatch(higher.name, lower.name, scores[`g${groupNumber}-r2-m2`]);
       }
     } else if (group.length === 2) {
       const [p1, p2] = group as [Player, Player];
@@ -72,10 +75,10 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
 };
 
 export const generateXLSContent = (
-  selectedRounds: RoundHistoryEntry[]
+  selectedRounds: RoundHistoryEntry[],
 ): string => {
   const sortedRounds = [...selectedRounds].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
   if (sortedRounds.length === 0) return "";
 
@@ -149,12 +152,12 @@ export const generateXLSContent = (
         const style = player.isPresent
           ? "color:#000000;"
           : player.rankBefore !== Infinity
-          ? "background-color:#d9d9d9;"
-          : "color:#000000;";
+            ? "background-color:#d9d9d9;"
+            : "color:#000000;";
         const rankBefore =
           player.rankBefore !== Infinity ? player.rankBefore : "";
         const foundPlayer = roundData.sortedPlayers.find(
-          (p) => p.rankAfter == i + 1
+          (p) => p.rankAfter == i + 1,
         );
         const playerOnRankAfter = foundPlayer?.name || "";
 
@@ -187,7 +190,7 @@ export const generateXLSContent = (
 export const downloadFile = (
   content: string,
   filename: string,
-  type: string
+  type: string,
 ) => {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -200,4 +203,3 @@ export const downloadFile = (
   document.body.removeChild(linkElement);
   URL.revokeObjectURL(url);
 };
-

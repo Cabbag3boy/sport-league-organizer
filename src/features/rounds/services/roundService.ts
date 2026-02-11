@@ -156,11 +156,17 @@ function generateMatches(entry: RoundHistoryEntry, roundId: string): DBMatch[] {
         const m3 = scores[`g${gNum}-r2-m1`];
         const m4 = scores[`g${gNum}-r2-m2`];
 
+        // Sort winners and losers by initial rank for consistent positioning
+        const [higherWinner, lowerWinner] =
+          w1.rank <= w2.rank ? [w1, w2] : [w2, w1];
+        const [higherLoser, lowerLoser] =
+          l1.rank <= l2.rank ? [l1, l2] : [l2, l1];
+
         if (m3 && w1 && w2) {
           matchesToInsert.push({
             round_id: roundId,
-            player_one_id: w1.id,
-            player_two_id: w2.id,
+            player_one_id: higherWinner.id,
+            player_two_id: lowerWinner.id,
             player_one_score: parseInt(m3.score1, 10),
             player_two_score: parseInt(m3.score2, 10),
             note: m3.note || null,
@@ -170,8 +176,8 @@ function generateMatches(entry: RoundHistoryEntry, roundId: string): DBMatch[] {
         if (m4 && l1 && l2) {
           matchesToInsert.push({
             round_id: roundId,
-            player_one_id: l1.id,
-            player_two_id: l2.id,
+            player_one_id: higherLoser.id,
+            player_two_id: lowerLoser.id,
             player_one_score: parseInt(m4.score1, 10),
             player_two_score: parseInt(m4.score2, 10),
             note: m4.note || null,

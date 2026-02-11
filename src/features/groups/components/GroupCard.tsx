@@ -53,6 +53,22 @@ const GroupCard: React.FC<GroupCardProps> = ({
         }
       }
 
+      // Sort round 2 matches by initial rank (higher rank = left position)
+      let higherWinner: Player | null = null,
+        lowerWinner: Player | null = null;
+      if (winner1 && winner2) {
+        [higherWinner, lowerWinner] =
+          winner1.rank <= winner2.rank
+            ? [winner1, winner2]
+            : [winner2, winner1];
+      }
+      let higherLoser: Player | null = null,
+        lowerLoser: Player | null = null;
+      if (loser1 && loser2) {
+        [higherLoser, lowerLoser] =
+          loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
+      }
+
       return (
         <>
           <div>
@@ -88,24 +104,26 @@ const GroupCard: React.FC<GroupCardProps> = ({
             </h4>
             <ul className="space-y-2">
               <Match
-                player1Name={winner1 ? winner1.name : "Vítěz (K1 Z1)"}
-                player2Name={winner2 ? winner2.name : "Vítěz (K1 Z2)"}
+                player1Name={higherWinner ? higherWinner.name : "Vítěz (K1 Z1)"}
+                player2Name={lowerWinner ? lowerWinner.name : "Vítěz (K1 Z2)"}
                 score1={r2m1Scores.score1}
                 score2={r2m1Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m1Id, s1, s2)}
                 note={r2m1Scores.note}
                 onNoteChange={(n) => onNoteUpdate?.(r2m1Id, n)}
-                isPlaceholder={!winner1 || !winner2}
+                isPlaceholder={!higherWinner || !lowerWinner}
               />
               <Match
-                player1Name={loser1 ? loser1.name : "Poražený (K1 Z1)"}
-                player2Name={loser2 ? loser2.name : "Poražený (K1 Z2)"}
+                player1Name={
+                  higherLoser ? higherLoser.name : "Poražený (K1 Z1)"
+                }
+                player2Name={lowerLoser ? lowerLoser.name : "Poražený (K1 Z2)"}
                 score1={r2m2Scores.score1}
                 score2={r2m2Scores.score2}
                 onScoreChange={(s1, s2) => onScoreUpdate(r2m2Id, s1, s2)}
                 note={r2m2Scores.note}
                 onNoteChange={(n) => onNoteUpdate?.(r2m2Id, n)}
-                isPlaceholder={!loser1 || !loser2}
+                isPlaceholder={!higherLoser || !lowerLoser}
               />
             </ul>
           </div>

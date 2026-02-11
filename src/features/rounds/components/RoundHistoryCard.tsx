@@ -84,26 +84,47 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
       const r2m1Scores = entry.scores[r2m1Id] || { score1: "?", score2: "?" };
       const r2m2Scores = entry.scores[r2m2Id] || { score1: "?", score2: "?" };
 
-      let winner1Name = "Vítěz (R1 M1)";
-      let loser1Name = "Poražený (R1 M1)";
+      let winner1: Player | null = null;
+      let loser1: Player | null = null;
       if (r1m1Scores.score1 !== "?" && r1m1Scores.score2 !== "?") {
         const s1 = parseInt(r1m1Scores.score1, 10);
         const s2 = parseInt(r1m1Scores.score2, 10);
         if (!isNaN(s1) && !isNaN(s2) && p1 && p4) {
-          winner1Name = s1 > s2 ? p1.name : p4.name;
-          loser1Name = s1 > s2 ? p4.name : p1.name;
+          winner1 = s1 > s2 ? p1 : p4;
+          loser1 = s1 > s2 ? p4 : p1;
         }
       }
 
-      let winner2Name = "Vítěz (R1 M2)";
-      let loser2Name = "Poražený (R1 M2)";
+      let winner2: Player | null = null;
+      let loser2: Player | null = null;
       if (r1m2Scores.score1 !== "?" && r1m2Scores.score2 !== "?") {
         const s1 = parseInt(r1m2Scores.score1, 10);
         const s2 = parseInt(r1m2Scores.score2, 10);
         if (!isNaN(s1) && !isNaN(s2) && p2 && p3) {
-          winner2Name = s1 > s2 ? p2.name : p3.name;
-          loser2Name = s1 > s2 ? p3.name : p2.name;
+          winner2 = s1 > s2 ? p2 : p3;
+          loser2 = s1 > s2 ? p3 : p2;
         }
+      }
+
+      // Sort round 2 matches by initial rank
+      let higherWinnerName = "Vítěz (R1 M1)";
+      let lowerWinnerName = "Vítěz (R1 M2)";
+      if (winner1 && winner2) {
+        const [higher, lower] =
+          winner1.rank <= winner2.rank
+            ? [winner1, winner2]
+            : [winner2, winner1];
+        higherWinnerName = higher.name;
+        lowerWinnerName = lower.name;
+      }
+
+      let higherLoserName = "Poražený (R1 M1)";
+      let lowerLoserName = "Poražený (R1 M2)";
+      if (loser1 && loser2) {
+        const [higher, lower] =
+          loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
+        higherLoserName = higher.name;
+        lowerLoserName = lower.name;
       }
 
       return (
@@ -139,15 +160,15 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
             </h6>
             <div className="space-y-1">
               <StaticMatch
-                player1Name={winner1Name}
-                player2Name={winner2Name}
+                player1Name={higherWinnerName}
+                player2Name={lowerWinnerName}
                 score1={r2m1Scores.score1}
                 score2={r2m1Scores.score2}
                 note={r2m1Scores.note}
               />
               <StaticMatch
-                player1Name={loser1Name}
-                player2Name={loser2Name}
+                player1Name={higherLoserName}
+                player2Name={lowerLoserName}
                 score1={r2m2Scores.score1}
                 score2={r2m2Scores.score2}
               />
