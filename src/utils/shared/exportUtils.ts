@@ -55,16 +55,58 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
 
       // Sort round 2 matches by initial rank
       if (winner1 && winner2) {
-        const [higher, lower] =
-          winner1.rank <= winner2.rank
-            ? [winner1, winner2]
-            : [winner2, winner1];
-        formatMatch(higher.name, lower.name, scores[`g${groupNumber}-r2-m1`]);
+        let higher = winner1,
+          lower = winner2;
+        let swap = false;
+        if (winner1.rank > winner2.rank) {
+          higher = winner2;
+          lower = winner1;
+          swap = true;
+        }
+        const r2m1Scores = scores[`g${groupNumber}-r2-m1`];
+        if (
+          r2m1Scores &&
+          r2m1Scores.score1 !== undefined &&
+          r2m1Scores.score2 !== undefined
+        ) {
+          let score1 = r2m1Scores.score1,
+            score2 = r2m1Scores.score2;
+          if (swap) {
+            [score1, score2] = [r2m1Scores.score2, r2m1Scores.score1];
+          }
+          formatMatch(higher.name, lower.name, {
+            ...r2m1Scores,
+            score1,
+            score2,
+          });
+        }
       }
       if (loser1 && loser2) {
-        const [higher, lower] =
-          loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
-        formatMatch(higher.name, lower.name, scores[`g${groupNumber}-r2-m2`]);
+        let higher = loser1,
+          lower = loser2;
+        let swap = false;
+        if (loser1.rank > loser2.rank) {
+          higher = loser2;
+          lower = loser1;
+          swap = true;
+        }
+        const r2m2Scores = scores[`g${groupNumber}-r2-m2`];
+        if (
+          r2m2Scores &&
+          r2m2Scores.score1 !== undefined &&
+          r2m2Scores.score2 !== undefined
+        ) {
+          let score1 = r2m2Scores.score1,
+            score2 = r2m2Scores.score2;
+          if (swap) {
+            [score1, score2] = [r2m2Scores.score2, r2m2Scores.score1];
+          }
+          formatMatch(higher.name, lower.name, {
+            ...r2m2Scores,
+            score1,
+            score2,
+          });
+        }
       }
     } else if (group.length === 2) {
       const [p1, p2] = group as [Player, Player];

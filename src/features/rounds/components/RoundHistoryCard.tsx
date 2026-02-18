@@ -71,8 +71,8 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
   }, [entry.playersBefore, entry.playersAfter]);
 
   const renderMatchesFromHistory = (group: Player[], groupIndex: number) => {
-    const groupNumber = groupIndex + 1;
     if (group.length === 4) {
+      const groupNumber = groupIndex + 1;
       const [p1, p2, p3, p4] = group;
       const r1m1Id = `g${groupNumber}-r1-m1`;
       const r1m2Id = `g${groupNumber}-r1-m2`;
@@ -83,6 +83,12 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
       const r1m2Scores = entry.scores[r1m2Id] || { score1: "?", score2: "?" };
       const r2m1Scores = entry.scores[r2m1Id] || { score1: "?", score2: "?" };
       const r2m2Scores = entry.scores[r2m2Id] || { score1: "?", score2: "?" };
+
+      // Ensure round 2 swapped scores are always defined
+      let r2m1Score1 = r2m1Scores.score1;
+      let r2m1Score2 = r2m1Scores.score2;
+      let r2m2Score1 = r2m2Scores.score1;
+      let r2m2Score2 = r2m2Scores.score2;
 
       let winner1: Player | null = null;
       let loser1: Player | null = null;
@@ -110,21 +116,43 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
       let higherWinnerName = "Vítěz (R1 M1)";
       let lowerWinnerName = "Vítěz (R1 M2)";
       if (winner1 && winner2) {
-        const [higher, lower] =
-          winner1.rank <= winner2.rank
-            ? [winner1, winner2]
-            : [winner2, winner1];
+        let higher = winner1,
+          lower = winner2;
+        let swap = false;
+        if (winner1.rank > winner2.rank) {
+          higher = winner2;
+          lower = winner1;
+          swap = true;
+        }
         higherWinnerName = higher.name;
         lowerWinnerName = lower.name;
+        // Prepare round 2 scores for correct left/right display
+        r2m1Score1 = r2m1Scores.score1;
+        r2m1Score2 = r2m1Scores.score2;
+        if (swap) {
+          [r2m1Score1, r2m1Score2] = [r2m1Scores.score2, r2m1Scores.score1];
+        }
       }
 
       let higherLoserName = "Poražený (R1 M1)";
       let lowerLoserName = "Poražený (R1 M2)";
       if (loser1 && loser2) {
-        const [higher, lower] =
-          loser1.rank <= loser2.rank ? [loser1, loser2] : [loser2, loser1];
+        let higher = loser1,
+          lower = loser2;
+        let swap = false;
+        if (loser1.rank > loser2.rank) {
+          higher = loser2;
+          lower = loser1;
+          swap = true;
+        }
         higherLoserName = higher.name;
         lowerLoserName = lower.name;
+        // Prepare round 2 scores for correct left/right display
+        r2m2Score1 = r2m2Scores.score1;
+        r2m2Score2 = r2m2Scores.score2;
+        if (swap) {
+          [r2m2Score1, r2m2Score2] = [r2m2Scores.score2, r2m2Scores.score1];
+        }
       }
 
       return (
@@ -162,15 +190,16 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
               <StaticMatch
                 player1Name={higherWinnerName}
                 player2Name={lowerWinnerName}
-                score1={r2m1Scores.score1}
-                score2={r2m1Scores.score2}
+                score1={r2m1Score1}
+                score2={r2m1Score2}
                 note={r2m1Scores.note}
               />
               <StaticMatch
                 player1Name={higherLoserName}
                 player2Name={lowerLoserName}
-                score1={r2m2Scores.score1}
-                score2={r2m2Scores.score2}
+                score1={r2m2Score1}
+                score2={r2m2Score2}
+                note={r2m2Scores.note}
               />
             </div>
           </div>
@@ -179,6 +208,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
     }
 
     if (group.length === 3) {
+      const groupNumber = groupIndex + 1;
       const [p1, p2, p3] = group;
       const m1Id = `g${groupNumber}-m1`;
       const m2Id = `g${groupNumber}-m2`;
@@ -222,6 +252,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
     }
 
     if (group.length === 2) {
+      const groupNumber = groupIndex + 1;
       const [p1, p2] = group;
       const m1Id = `g${groupNumber}-m1`;
       const m1Scores = entry.scores[m1Id] || { score1: "?", score2: "?" };
