@@ -1,8 +1,20 @@
 import type { RoundHistoryEntry, Player } from "../../types";
 
+const LEGACY_ROUND2_SCORE_SWAP_CUTOFF = new Date(
+  "2026-01-22T23:59:59.999",
+).getTime();
+
+const shouldSwapLegacyRound2Scores = (roundDate: string): boolean => {
+  const timestamp = new Date(roundDate).getTime();
+  return (
+    !Number.isNaN(timestamp) && timestamp <= LEGACY_ROUND2_SCORE_SWAP_CUTOFF
+  );
+};
+
 const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
   const matchStrings: string[] = [];
   const scores = round.scores;
+  const shouldSwapRound2Scores = shouldSwapLegacyRound2Scores(round.date);
 
   round.groups.forEach((group, groupIndex) => {
     const groupNumber = groupIndex + 1;
@@ -71,7 +83,7 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
         ) {
           let score1 = r2m1Scores.score1,
             score2 = r2m1Scores.score2;
-          if (swap) {
+          if (swap && shouldSwapRound2Scores) {
             [score1, score2] = [r2m1Scores.score2, r2m1Scores.score1];
           }
           formatMatch(higher.name, lower.name, {
@@ -98,7 +110,7 @@ const getRoundMatchesHtml = (round: RoundHistoryEntry): string => {
         ) {
           let score1 = r2m2Scores.score1,
             score2 = r2m2Scores.score2;
-          if (swap) {
+          if (swap && shouldSwapRound2Scores) {
             [score1, score2] = [r2m2Scores.score2, r2m2Scores.score1];
           }
           formatMatch(higher.name, lower.name, {

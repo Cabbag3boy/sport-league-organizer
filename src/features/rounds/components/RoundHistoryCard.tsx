@@ -2,6 +2,17 @@ import React, { useState, useMemo } from "react";
 import type { RoundHistoryEntry, Player } from "@/types";
 import StaticMatch from "@/components/shared/StaticMatch";
 
+const LEGACY_ROUND2_SCORE_SWAP_CUTOFF = new Date(
+  "2026-01-22T23:59:59.999",
+).getTime();
+
+const shouldSwapLegacyRound2Scores = (roundDate: string): boolean => {
+  const timestamp = new Date(roundDate).getTime();
+  return (
+    !Number.isNaN(timestamp) && timestamp <= LEGACY_ROUND2_SCORE_SWAP_CUTOFF
+  );
+};
+
 interface RoundHistoryCardProps {
   entry: RoundHistoryEntry;
   isSelected: boolean;
@@ -71,6 +82,8 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
   }, [entry.playersBefore, entry.playersAfter]);
 
   const renderMatchesFromHistory = (group: Player[], groupIndex: number) => {
+    const shouldSwapRound2Scores = shouldSwapLegacyRound2Scores(entry.date);
+
     if (group.length === 4) {
       const groupNumber = groupIndex + 1;
       const [p1, p2, p3, p4] = group;
@@ -129,7 +142,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
         // Prepare round 2 scores for correct left/right display
         r2m1Score1 = r2m1Scores.score1;
         r2m1Score2 = r2m1Scores.score2;
-        if (swap) {
+        if (swap && shouldSwapRound2Scores) {
           [r2m1Score1, r2m1Score2] = [r2m1Scores.score2, r2m1Scores.score1];
         }
       }
@@ -150,7 +163,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
         // Prepare round 2 scores for correct left/right display
         r2m2Score1 = r2m2Scores.score1;
         r2m2Score2 = r2m2Scores.score2;
-        if (swap) {
+        if (swap && shouldSwapRound2Scores) {
           [r2m2Score1, r2m2Score2] = [r2m2Scores.score2, r2m2Scores.score1];
         }
       }
