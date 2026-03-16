@@ -279,7 +279,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!onDelete || !isLastRound) return;
+    if (!onDelete || !isLastRound || !isAuthenticated) return;
     setIsDeleting(true);
     try {
       await onDelete(entry.id);
@@ -326,7 +326,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {isLastRound && (
+          {isLastRound && isAuthenticated && (
             <button
               onClick={(e) => {
                 e.stopPropagation();

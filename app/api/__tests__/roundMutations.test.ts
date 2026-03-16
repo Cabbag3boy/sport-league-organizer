@@ -106,6 +106,19 @@ describe("round mutation routes", () => {
     expect(deleteLastRoundCore).not.toHaveBeenCalled();
   });
 
+  it("DELETE /api/rounds/[roundId] returns 401 when token is missing", async () => {
+    vi.mocked(getAccessTokenFromRequest).mockReturnValue(null);
+
+    const res = await deleteRound(makeReq({}) as any, {
+      params: Promise.resolve({ roundId: "round-1" }),
+    });
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.error).toBe("Missing session token");
+    expect(deleteLastRoundCore).not.toHaveBeenCalled();
+  });
+
   it("DELETE /api/rounds/[roundId] maps body+route params to deleteLastRoundCore", async () => {
     vi.mocked(getAccessTokenFromRequest).mockReturnValue("token-r3");
     vi.mocked(deleteLastRoundCore).mockResolvedValue({
