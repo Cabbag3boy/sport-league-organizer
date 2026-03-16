@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { DBPlayerInLeague, Player } from "@/types";
-import { createServerSupabase } from "@/utils/supabaseServer";
+import { createPublicServerSupabase } from "@/utils/supabaseServer";
 import {
   getAccessTokenFromRequest,
   validateSessionToken,
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
     const { leagueId } = await context.params;
     const accessToken = getAccessTokenFromRequest(req);
 
-    const supabase = createServerSupabase(accessToken ?? undefined);
+    const supabase = createPublicServerSupabase(accessToken ?? undefined);
 
     if (accessToken) {
       const sessionValidation = await validateSessionToken(supabase, req);

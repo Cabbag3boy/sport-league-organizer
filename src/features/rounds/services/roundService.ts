@@ -4,59 +4,7 @@ import type {
   CompleteRoundInput,
   CompleteRoundOutput,
 } from "@/types";
-import { getSupabase } from "@/utils/supabase";
-import { getCsrfToken } from "@/features/auth/utils/csrfToken";
-
-interface ApiErrorPayload {
-  error?: string;
-}
-
-const getAuthHeaders = async (): Promise<Record<string, string>> => {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  const supabase = getSupabase();
-  if (!supabase) return headers;
-
-  const sessionResponse = await supabase.auth?.getSession?.();
-  const session = sessionResponse?.data?.session;
-
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  }
-
-  const csrfToken = getCsrfToken();
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
-  }
-
-  return headers;
-};
-
-const getReadHeaders = async (): Promise<Record<string, string>> => {
-  const headers: Record<string, string> = {};
-
-  const supabase = getSupabase();
-  if (!supabase) return headers;
-
-  const sessionResponse = await supabase.auth?.getSession?.();
-  const session = sessionResponse?.data?.session;
-
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  }
-
-  return headers;
-};
-
-const parseApiResponse = async <T>(res: Response): Promise<T> => {
-  const data = (await res.json().catch(() => ({}))) as T & ApiErrorPayload;
-  if (!res.ok) {
-    throw new Error(data.error || "Request failed");
-  }
-  return data;
-};
+import { apiFetch, apiMutate } from "@/utils/apiClient";
 
 /**
  * Round Service - Manages round and match operations
@@ -66,26 +14,13 @@ const parseApiResponse = async <T>(res: Response): Promise<T> => {
 export async function completeRound(
   input: CompleteRoundInput,
 ): Promise<CompleteRoundOutput> {
-  const headers = await getAuthHeaders();
-  const res = await fetch("/api/rounds/complete", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(input),
-  });
-
-  return parseApiResponse<CompleteRoundOutput>(res);
+  return apiMutate<CompleteRoundOutput>("/api/rounds/complete", "POST", input);
 }
 
 export async function fetchRoundHistory(
   seasonId: string,
 ): Promise<RoundHistoryEntry[]> {
-  const headers = await getReadHeaders();
-  const res = await fetch(`/api/seasons/${seasonId}/rounds`, {
-    method: "GET",
-    headers,
-  });
-
-  return parseApiResponse<RoundHistoryEntry[]>(res);
+  return apiFetch<RoundHistoryEntry[]>(`/api/seasons/${seasonId}/rounds`);
 }
 
 interface DeleteRoundOutput {
@@ -105,14 +40,10 @@ export async function deleteLastRound(
   roundId: string,
   playersBefore: Player[],
 ): Promise<DeleteRoundOutput> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`/api/rounds/${roundId}`, {
-    method: "DELETE",
-    headers,
-    body: JSON.stringify({ leagueId, playersBefore }),
+  return apiMutate<DeleteRoundOutput>(`/api/rounds/${roundId}`, "DELETE", {
+    leagueId,
+    playersBefore,
   });
-
-  return parseApiResponse<DeleteRoundOutput>(res);
 }
 
 /**
@@ -124,15 +55,10 @@ export async function updateLastRoundResults(
   roundId: string,
   newScores: Record<string, { score1: string; score2: string; note?: string }>,
 ): Promise<{ playersUpdated: number; matchesUpdated: number }> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`/api/rounds/${roundId}/results`, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify({ leagueId, newScores }),
-  });
-
-  return parseApiResponse<{ playersUpdated: number; matchesUpdated: number }>(
-    res,
+  return apiMutate<{ playersUpdated: number; matchesUpdated: number }>(
+    `/api/rounds/${roundId}/results`,
+    "PATCH",
+    { leagueId, newScores },
   );
 }
 
@@ -143,14 +69,9 @@ export async function undoLastRoundEdit(
   leagueId: string,
   roundId: string,
 ): Promise<{ playersUpdated: number; matchesUpdated: number }> {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`/api/rounds/${roundId}/undo`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ leagueId }),
-  });
-
-  return parseApiResponse<{ playersUpdated: number; matchesUpdated: number }>(
-    res,
+  return apiMutate<{ playersUpdated: number; matchesUpdated: number }>(
+    `/api/rounds/${roundId}/undo`,
+    "POST",
+    { leagueId },
   );
 }

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/utils/supabaseServer";
-import { getAccessTokenFromRequest, validateAuthenticatedRequest } from "@/utils/authValidation";
+import { createUserServerSupabase } from "@/utils/supabaseServer";
+import {
+  getAccessTokenFromRequest,
+  validateAuthenticatedRequest,
+} from "@/utils/authValidation";
+import {
+  deleteEventCore,
+  updateEventCore,
+} from "@/features/events/services/eventMutationsCore";
 
 type RouteParams = {
   params: Promise<{ eventId: string }>;
@@ -18,9 +25,8 @@ export async function DELETE(req: NextRequest, context: RouteParams) {
       );
     }
 
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
 
-    // Validate session token and CSRF token
     const validation = await validateAuthenticatedRequest(supabase, req);
     if (!validation.valid) {
       return NextResponse.json(
@@ -29,12 +35,7 @@ export async function DELETE(req: NextRequest, context: RouteParams) {
       );
     }
 
-    const { error } = await supabase.from("events").delete().eq("id", eventId);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
+    await deleteEventCore(supabase, eventId);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
@@ -54,9 +55,8 @@ export async function PATCH(req: NextRequest, context: RouteParams) {
       );
     }
 
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
 
-    // Validate session token and CSRF token
     const validation = await validateAuthenticatedRequest(supabase, req);
     if (!validation.valid) {
       return NextResponse.json(
@@ -71,18 +71,8 @@ export async function PATCH(req: NextRequest, context: RouteParams) {
       pinned?: boolean;
     };
 
-    const { data, error } = await supabase
-      .from("events")
-      .update(updates)
-      .eq("id", eventId)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(data);
+    const event = await updateEventCore(supabase, eventId, updates);
+    return NextResponse.json(event);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });

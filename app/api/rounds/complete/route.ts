@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/utils/supabaseServer";
-import { getAccessTokenFromRequest, validateAuthenticatedRequest } from "@/utils/authValidation";
+import { createUserServerSupabase } from "@/utils/supabaseServer";
+import {
+  getAccessTokenFromRequest,
+  validateAuthenticatedRequest,
+} from "@/utils/authValidation";
 import { completeRoundCore } from "@/features/rounds/services/roundMutationsCore";
 import type { CompleteRoundInput } from "@/types";
 
@@ -15,7 +18,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
 
     // Validate session token and CSRF token
     const validation = await validateAuthenticatedRequest(supabase, req);

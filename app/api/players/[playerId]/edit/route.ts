@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/utils/supabaseServer";
-import { getAccessTokenFromRequest, validateAuthenticatedRequest } from "@/utils/authValidation";
+import { createUserServerSupabase } from "@/utils/supabaseServer";
+import {
+  getAccessTokenFromRequest,
+  validateAuthenticatedRequest,
+} from "@/utils/authValidation";
 import { updatePlayerCore } from "@/features/players/services/playerMutationsCore";
 import type { UpdatePlayerInput } from "@/types";
 
@@ -20,7 +23,7 @@ export async function PATCH(req: NextRequest, context: RouteParams) {
       );
     }
 
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
 
     // Validate session token and CSRF token
     const validation = await validateAuthenticatedRequest(supabase, req);

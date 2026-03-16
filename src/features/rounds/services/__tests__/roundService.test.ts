@@ -6,6 +6,7 @@ import {
   undoLastRoundEdit,
 } from "../roundService";
 import { getSupabase } from "@/utils/supabase";
+import { getCsrfToken } from "@/features/auth/utils/csrfToken";
 import type { Player } from "@/types";
 import {
   createMockRound,
@@ -15,6 +16,7 @@ import {
 import { createMockQueryBuilder } from "@/test/supabase-mock";
 
 vi.mock("@/utils/supabase");
+vi.mock("@/features/auth/utils/csrfToken");
 
 describe("roundService", () => {
   const mockSupabase = {
@@ -258,6 +260,15 @@ describe("roundService", () => {
   });
 
   describe("Update Last Round Results", () => {
+    beforeEach(() => {
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: { access_token: "test-token" } },
+      });
+      (getCsrfToken as ReturnType<typeof vi.fn>).mockReturnValue(
+        "test-csrf-token",
+      );
+    });
+
     it("should throw error if not the last round", async () => {
       const leagueId = "league-1";
       const roundId = "round-1";
@@ -333,6 +344,15 @@ describe("roundService", () => {
   });
 
   describe("Undo Last Round Edit", () => {
+    beforeEach(() => {
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: { access_token: "test-token" } },
+      });
+      (getCsrfToken as ReturnType<typeof vi.fn>).mockReturnValue(
+        "test-csrf-token",
+      );
+    });
+
     it("should throw error if no previous details exist", async () => {
       const leagueId = "league-1";
       const roundId = "round-1";

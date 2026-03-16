@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/utils/supabaseServer";
-import { getAccessTokenFromRequest, validateAuthenticatedRequest } from "@/utils/authValidation";
+import { createUserServerSupabase } from "@/utils/supabaseServer";
+import {
+  getAccessTokenFromRequest,
+  validateAuthenticatedRequest,
+} from "@/utils/authValidation";
+import { createEventCore } from "@/features/events/services/eventMutationsCore";
+import type { CreateEventInput } from "@/types";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,9 +18,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
 
-    // Validate session token and CSRF token
     const validation = await validateAuthenticatedRequest(supabase, req);
     if (!validation.valid) {
       return NextResponse.json(
@@ -24,24 +28,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-
-    const { data, error } = await supabase
-      .from("events")
-      .insert({
-        league_id: body.leagueId,
-        title: body.title,
-        content: body.content,
-        pinned: body.pinned,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(data);
+    const input = (await req.json()) as CreateEventInput;
+    const event = await createEventCore(supabase, input);
+    return NextResponse.json(event);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });

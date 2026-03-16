@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/utils/supabaseServer";
+import { createUserServerSupabase } from "@/utils/supabaseServer";
 
 const ACCESS_TOKEN_COOKIE = "lm_access_token";
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify token before storing it in cookie
-    const supabase = createServerSupabase(accessToken);
+    const supabase = createUserServerSupabase(accessToken);
     const {
       data: { user },
       error,

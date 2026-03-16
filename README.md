@@ -137,6 +137,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 ## Key Features Details
 
+### Initial Bootstrap Flow
+
+- First page load is server-bootstrapped in `app/page.tsx` using server Supabase helpers.
+- The server payload is passed to the client app and hydrates Zustand state on mount.
+- A guarded client bootstrap fetch remains as fallback only when server bootstrap data is missing.
+- Auth session sync still refreshes data on explicit sign-in/sign-out events.
+
 ### League Management
 
 - Create and configure leagues with custom rules
