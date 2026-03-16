@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { DBRound, RoundHistoryEntry } from "@/types";
 import { createPublicServerSupabase } from "@/utils/supabaseServer";
 import {
   getAccessTokenFromRequest,
   validateSessionToken,
 } from "@/utils/authValidation";
+import { fetchRoundHistoryServer } from "@/features/rounds/services/roundReadService";
 
 type RouteParams = {
   params: Promise<{ seasonId: string }>;
@@ -28,26 +28,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
       }
     }
 
-    const { data, error } = await supabase
-      .from("rounds")
-      .select("*")
-      .eq("season_id", seasonId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    const roundHistory = ((data as DBRound[]) || []).map((round) => ({
-      id: round.id,
-      date: round.created_at,
-      present_players: round.present_players,
-      groups: (round.details as any)?.groups || [],
-      scores: (round.details as any)?.scores || {},
-      finalPlacements: (round.details as any)?.finalPlacements || [],
-      playersBefore: (round.details as any)?.playersBefore || [],
-      playersAfter: (round.details as any)?.playersAfter || [],
-    })) as RoundHistoryEntry[];
+    const roundHistory = await fetchRoundHistoryServer(supabase, seasonId);
 
     return NextResponse.json(roundHistory);
   } catch (err) {

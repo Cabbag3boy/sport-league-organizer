@@ -39,5 +39,11 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/events/:path*", "/api/players/:path*", "/api/rounds/:path*"],
+  matcher: [
+    "/api/events/:path*",
+    "/api/league/:path*",
+    "/api/players/:path*",
+    "/api/rounds/:path*",
+    "/api/seasons/:path*",
+  ],
 };

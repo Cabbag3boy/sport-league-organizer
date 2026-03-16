@@ -9,7 +9,7 @@ import { apiFetch, apiMutate } from "@/utils/apiClient";
 
 /**
  * Player Service - Manages player operations within leagues
- * Mutations delegated to API routes, reads use direct Supabase client
+ * Reads and mutations are delegated to API routes.
  */
 
 export async function addPlayer(input: AddPlayerInput): Promise<Player> {

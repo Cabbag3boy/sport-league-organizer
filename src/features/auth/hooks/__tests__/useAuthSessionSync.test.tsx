@@ -105,4 +105,41 @@ describe("useAuthSessionSync", () => {
     expect(clearServerSession).toHaveBeenCalled();
     expect(syncServerSession).not.toHaveBeenCalled();
   });
+
+  it("runs initial bootstrap once and does not rerun on later auth events", () => {
+    let authCallback: ((event: string, session: any) => void) | undefined;
+
+    const mockSupabase = {
+      auth: {
+        onAuthStateChange: vi.fn((cb) => {
+          authCallback = cb;
+          return { data: { subscription: { unsubscribe: vi.fn() } } };
+        }),
+      },
+    };
+
+    vi.mocked(getSupabase).mockReturnValue(mockSupabase as any);
+
+    renderHook(() =>
+      useAuthSessionSync({
+        showLogin: true,
+        setShowLogin,
+        setDbError,
+        showToast,
+        onInitialSession,
+        onSignedIn,
+        onSignedOut,
+        shouldRunInitialBootstrap: true,
+      }),
+    );
+
+    act(() => {
+      authCallback?.("INITIAL_SESSION", null);
+      authCallback?.("TOKEN_REFRESHED", { access_token: "token-1" });
+      authCallback?.("SIGNED_IN", { access_token: "token-1" });
+      authCallback?.("SIGNED_OUT", null);
+    });
+
+    expect(onInitialSession).toHaveBeenCalledTimes(1);
+  });
 });

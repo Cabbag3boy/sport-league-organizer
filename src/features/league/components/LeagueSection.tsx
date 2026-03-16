@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { getSupabase } from "@/utils/supabase";
 import { useLeagueStore } from "@/stores";
 import { useCsrfValidation } from "@/features/auth/hooks";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import { apiMutate } from "@/utils/apiClient";
 
 interface LeagueSectionProps {
   onLeagueSelect: (id: string) => void;
@@ -22,32 +22,32 @@ const LeagueSection: React.FC<LeagueSectionProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [rlsError, setRlsError] = useState<string | null>(null);
 
-  const supabase = getSupabase();
   const { validateAndExecute } = useCsrfValidation();
 
   const handleAddLeague = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !newLeagueName.trim()) return;
+    if (!newLeagueName.trim()) return;
     setIsLoading(true);
     setRlsError(null);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase.from("leagues").insert({
-          name: newLeagueName.trim(),
-        });
-
-        if (error) {
-          if (error.message.includes("row-level security policy")) {
-            setRlsError(
-              "Databáze Supabase blokuje tuto akci kvůli zásadám zabezpečení (Row-Level Security - RLS). Musíte povolit přístup v nastavení projektu Supabase."
-            );
-          } else {
-            alert(error.message);
-          }
-        } else {
+        try {
+          await apiMutate("/api/league", "POST", {
+            name: newLeagueName.trim(),
+          });
           setNewLeagueName("");
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          if (message.includes("row-level security policy")) {
+            setRlsError(
+              "Databáze Supabase blokuje tuto akci kvůli zásadám zabezpečení (Row-Level Security - RLS). Musíte povolit přístup v nastavení projektu Supabase.",
+            );
+          } else {
+            alert(message);
+          }
         }
       },
       {
@@ -55,28 +55,28 @@ const LeagueSection: React.FC<LeagueSectionProps> = ({
           console.error("CSRF validation failed:", error);
           setRlsError("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };
 
   const handleUpdate = async () => {
-    if (!supabase || !editingId) return;
+    if (!editingId) return;
     setIsLoading(true);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase
-          .from("leagues")
-          .update({ name: editName.trim() })
-          .eq("id", editingId);
-
-        if (error) {
-          alert(error.message);
-        } else {
+        try {
+          await apiMutate(`/api/league/${editingId}`, "PATCH", {
+            name: editName.trim(),
+          });
           setEditingId(null);
           setEditName("");
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          alert(message);
         }
       },
       {
@@ -84,27 +84,25 @@ const LeagueSection: React.FC<LeagueSectionProps> = ({
           console.error("CSRF validation failed:", error);
           alert("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };
 
   const handleDelete = async () => {
-    if (!supabase || !isDeleting) return;
+    if (!isDeleting) return;
     setIsLoading(true);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase
-          .from("leagues")
-          .delete()
-          .eq("id", isDeleting);
-
-        if (error) {
-          alert(error.message);
-        } else {
+        try {
+          await apiMutate(`/api/league/${isDeleting}`, "DELETE");
           setIsDeleting(null);
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          alert(message);
         }
       },
       {
@@ -112,7 +110,7 @@ const LeagueSection: React.FC<LeagueSectionProps> = ({
           console.error("CSRF validation failed:", error);
           alert("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };

@@ -123,38 +123,23 @@ export interface UpdatePlayerInput {
   leagueId: string;
 }
 
-export interface FetchPlayersInLeagueInput {
-  leagueId: string;
-}
-
-export interface FetchPlayersInLeagueOutput {
-  players: Player[];
-  error?: string;
-}
-
 // League Service DTOs
-export interface FetchLeaguesInput {}
 
-export interface FetchLeaguesOutput {
-  leagues: DBLeague[];
+export interface CreateLeagueInput {
+  name: string;
 }
 
-export interface FetchSeasonsInput {
+export interface UpdateLeagueInput {
+  name: string;
+}
+
+export interface CreateSeasonInput {
   leagueId: string;
+  name: string;
 }
 
-export interface FetchSeasonsOutput {
-  seasons: DBSeason[];
-}
-
-export interface FetchBaseDataInput {
-  leagueId?: string;
-  forceRefreshLeagues?: boolean;
-}
-
-export interface FetchBaseDataOutput {
-  leagueId: string | null;
-  seasons: DBSeason[];
+export interface UpdateSeasonInput {
+  name: string;
 }
 
 // Event Service DTOs
@@ -181,14 +166,6 @@ export interface ToggleEventPinInput {
   currentPinned: boolean;
 }
 
-export interface FetchEventsInput {
-  leagueId: string;
-}
-
-export interface FetchEventsOutput {
-  events: DBEvent[];
-}
-
 // Round Service DTOs
 export interface CompleteRoundInput {
   leagueId: string;
@@ -201,9 +178,4 @@ export interface CompleteRoundOutput {
   roundId: string;
   matchesInserted: number;
   playersUpdated: number;
-}
-
-// Global Players Service DTO
-export interface FetchGlobalPlayersOutput {
-  players: DBPlayer[];
 }

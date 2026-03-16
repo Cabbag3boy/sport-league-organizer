@@ -1,138 +1,90 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  addExistingPlayer,
   addPlayer,
+  fetchAllPlayers,
+  fetchPlayersInLeague,
   removePlayer,
   updatePlayer,
-  fetchPlayersInLeague,
-  addExistingPlayer,
 } from "../playerService";
-import { getSupabase } from "@/utils/supabase";
-import { createMockPlayer, createMockPlayerInLeague } from "@/test/fixtures";
-import { createMockLeague } from "@/test/fixtures";
-import { createMockQueryBuilder } from "@/test/supabase-mock";
+import { apiFetch, apiMutate } from "@/utils/apiClient";
 
-vi.mock("@/utils/supabase");
-vi.mock("@/utils/leagueUtils", () => ({
-  calculateNextRank: vi.fn((count) => count + 1),
-  reorderPlayerRanks: vi.fn((players) =>
-    players.map((p: any, i: number) => ({ ...p, rank: i + 1 }))
-  ),
+vi.mock("@/utils/apiClient", () => ({
+  apiFetch: vi.fn(),
+  apiMutate: vi.fn(),
 }));
 
 describe("playerService", () => {
-  const mockSupabase = {
-    from: vi.fn(),
-    auth: { getSession: vi.fn(), onAuthStateChange: vi.fn() },
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-    (getSupabase as any).mockReturnValue(mockSupabase);
   });
 
-  describe("Add New Player Scenario", () => {
-    it("should create new global player and add to league with correct rank", async () => {
-      const mockLeague = createMockLeague();
-      expect(addPlayer).toBeDefined();
-      expect(mockLeague.id).toBeTruthy();
-    });
+  it("addPlayer delegates to POST /api/players", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "p1" } as any);
 
-    it("should return player with computed name and rank", async () => {
-      expect(addPlayer).toBeDefined();
-      const mockPlayer = createMockPlayer({
-        id: "new-player",
-        first_name: "Test",
-        last_name: "User",
-      });
-      expect(mockPlayer.first_name).toBe("Test");
+    await addPlayer({ leagueId: "l1", playerName: "Jane Doe" });
+
+    expect(apiMutate).toHaveBeenCalledWith("/api/players", "POST", {
+      leagueId: "l1",
+      playerName: "Jane Doe",
     });
   });
 
-  describe("Add Existing Player Scenario", () => {
-    it("should add existing player to league and fetch player data", async () => {
-      expect(addExistingPlayer).toBeDefined();
-      const mockPlayerInLeague = createMockPlayerInLeague({
-        player_id: "existing-player-1",
-        rank: 5,
-      });
-      expect(mockPlayerInLeague.rank).toBe(5);
-    });
+  it("addExistingPlayer delegates to POST /api/players", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "p2" } as any);
 
-    it("should calculate rank based on current player count", async () => {
-      expect(addExistingPlayer).toBeDefined();
-      const mockLeague = createMockLeague();
-      expect(mockLeague.id).toBeTruthy();
+    await addExistingPlayer({ leagueId: "l1", playerId: "p2" });
+
+    expect(apiMutate).toHaveBeenCalledWith("/api/players", "POST", {
+      leagueId: "l1",
+      playerId: "p2",
     });
   });
 
-  describe("Remove Player Scenario", () => {
-    it("should remove player from league when player exists in other leagues", async () => {
-      expect(removePlayer).toBeDefined();
-    });
+  it("removePlayer delegates to DELETE /api/players/[id] with leagueId", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ success: true } as any);
 
-    it("should delete global player when no other league memberships exist", async () => {
-      expect(removePlayer).toBeDefined();
-    });
+    await removePlayer({ leagueId: "l1", playerId: "p3" });
 
-    it("should validate cascade logic checks", async () => {
-      expect(removePlayer).toBeDefined();
+    expect(apiMutate).toHaveBeenCalledWith("/api/players/p3", "DELETE", {
+      leagueId: "l1",
     });
   });
 
-  describe("Update Player Scenario", () => {
-    it("should update player name and reorder all ranks in league", async () => {
-      expect(updatePlayer).toBeDefined();
-      const mockPlayer = createMockPlayer({
-        first_name: "Updated",
-        last_name: "Name",
-      });
-      expect(mockPlayer.first_name).toBe("Updated");
+  it("updatePlayer delegates to PATCH /api/players/[id]/edit", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "p4" } as any);
+
+    await updatePlayer({
+      id: "p4",
+      first_name: "Jan",
+      last_name: "Novak",
+      rank: 2,
+      leagueId: "l1",
     });
 
-    it("should fetch all players and reorder ranks correctly", async () => {
-      expect(updatePlayer).toBeDefined();
-    });
-
-    it("should upsert all rank updates atomically", async () => {
-      expect(updatePlayer).toBeDefined();
-    });
-  });
-
-  describe("Fetch Players Scenario", () => {
-    it("should fetch players with joined data and correct ordering", async () => {
-      expect(fetchPlayersInLeague).toBeDefined();
-      const mockLeague = createMockLeague();
-      const mockPlayer = createMockPlayer();
-      expect(mockPlayer).toBeTruthy();
-    });
-
-    it("should return empty array when league has no players", async () => {
-      expect(fetchPlayersInLeague).toBeDefined();
-    });
-
-    it("should include player name field in response", async () => {
-      expect(fetchPlayersInLeague).toBeDefined();
+    expect(apiMutate).toHaveBeenCalledWith("/api/players/p4/edit", "PATCH", {
+      first_name: "Jan",
+      last_name: "Novak",
+      rank: 2,
+      leagueId: "l1",
     });
   });
 
-  // Sanity checks for export existence
-  it("should export addPlayer function", () => {
-    expect(typeof addPlayer).toBe("function");
+  it("fetchPlayersInLeague delegates to GET /api/league/[id]/players", async () => {
+    vi.mocked(apiFetch).mockResolvedValue([] as any);
+
+    await fetchPlayersInLeague("league-1");
+
+    expect(apiFetch).toHaveBeenCalledWith("/api/league/league-1/players");
   });
 
-  it("should export removePlayer function", () => {
-    expect(typeof removePlayer).toBe("function");
-  });
+  it("fetchAllPlayers reuses fetchPlayersInLeague", async () => {
+    const players = [{ id: "p1" }];
+    vi.mocked(apiFetch).mockResolvedValue(players as any);
 
-  it("should export updatePlayer function", () => {
-    expect(typeof updatePlayer).toBe("function");
-  });
+    const result = await fetchAllPlayers("league-1");
 
-  it("should export fetchPlayersInLeague function", () => {
-    expect(typeof fetchPlayersInLeague).toBe("function");
-  });
-
-  it("should export addExistingPlayer function", () => {
-    expect(typeof addExistingPlayer).toBe("function");
+    expect(apiFetch).toHaveBeenCalledWith("/api/league/league-1/players");
+    expect(result).toEqual(players);
   });
 });

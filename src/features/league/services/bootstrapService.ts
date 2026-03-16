@@ -3,16 +3,13 @@ import type {
   DBEvent,
   DBLeague,
   DBPlayer,
-  DBPlayerInLeague,
-  DBRound,
   DBSeason,
   Player,
   RoundHistoryEntry,
 } from "@/types";
-import {
-  mapPlayerInLeagueRowToPlayer,
-  mapRoundToHistoryEntry,
-} from "./bootstrapMappers";
+import { fetchLeagueEventsServer } from "@/features/events/services/eventReadService";
+import { fetchPlayersInLeagueServer } from "@/features/players/services/playerReadService";
+import { fetchRoundHistoryServer } from "@/features/rounds/services/roundReadService";
 
 export interface BootstrapLeagueData {
   leagues: DBLeague[];
@@ -67,25 +64,17 @@ export async function fetchBootstrapLeagueData(
     };
   }
 
-  const [
-    { data: seasonsData, error: seasonsError },
-    { data: eventsData, error: eventsError },
-  ] = await Promise.all([
-    supabase
-      .from("seasons")
-      .select("*")
-      .eq("league_id", selectedLeagueId)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("events")
-      .select("*")
-      .eq("league_id", selectedLeagueId)
-      .order("pinned", { ascending: false })
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: seasonsData, error: seasonsError }, eventsData] =
+    await Promise.all([
+      supabase
+        .from("seasons")
+        .select("*")
+        .eq("league_id", selectedLeagueId)
+        .order("created_at", { ascending: false }),
+      fetchLeagueEventsServer(supabase, selectedLeagueId),
+    ]);
 
   if (seasonsError) throw seasonsError;
-  if (eventsError) throw eventsError;
 
   seasons = (seasonsData as DBSeason[]) || [];
   events = (eventsData as DBEvent[]) || [];
@@ -104,35 +93,13 @@ export async function fetchBootstrapLeagueData(
     };
   }
 
-  const [
-    { data: playersInLeagueData, error: playersInLeagueError },
-    { data: roundsData, error: roundsError },
-  ] = await Promise.all([
-    supabase
-      .from("players_in_leagues")
-      .select("rank, players(id, first_name, last_name)")
-      .eq("league_id", selectedLeagueId)
-      .order("rank"),
-    supabase
-      .from("rounds")
-      .select("*")
-      .eq("season_id", selectedSeasonId)
-      .order("created_at", { ascending: false }),
+  const [playersInLeagueData, roundsData] = await Promise.all([
+    fetchPlayersInLeagueServer(supabase, selectedLeagueId),
+    fetchRoundHistoryServer(supabase, selectedSeasonId),
   ]);
 
-  if (playersInLeagueError) throw playersInLeagueError;
-  if (roundsError) throw roundsError;
-
-  players = (
-    ((playersInLeagueData as unknown as DBPlayerInLeague[]) ||
-      []) as DBPlayerInLeague[]
-  )
-    .map((row) => mapPlayerInLeagueRowToPlayer(row))
-    .filter((row): row is Player => !!row);
-
-  roundHistory = (((roundsData as DBRound[]) || []) as DBRound[]).map(
-    mapRoundToHistoryEntry,
-  );
+  players = (playersInLeagueData as Player[]) || [];
+  roundHistory = (roundsData as RoundHistoryEntry[]) || [];
 
   return {
     leagues,

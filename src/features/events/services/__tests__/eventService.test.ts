@@ -1,129 +1,74 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createEvent, deleteEvent, toggleEventPin } from "../eventService";
-import { getSupabase } from "@/utils/supabase";
-import { createMockEvent, createMockLeague } from "@/test/fixtures";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createEvent,
+  deleteEvent,
+  fetchEvents,
+  toggleEventPin,
+  updateEvent,
+} from "../eventService";
+import { apiFetch, apiMutate } from "@/utils/apiClient";
 
-vi.mock("@/utils/supabase");
+vi.mock("@/utils/apiClient", () => ({
+  apiFetch: vi.fn(),
+  apiMutate: vi.fn(),
+}));
 
 describe("eventService", () => {
-  const mockSupabase = {
-    from: vi.fn(),
-    auth: { getSession: vi.fn(), onAuthStateChange: vi.fn() },
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
-    (getSupabase as any).mockReturnValue(mockSupabase);
   });
 
-  describe("Create Event Scenario", () => {
-    it("should create event with JSONB details storage", async () => {
-      const mockLeague = createMockLeague();
-      const newEvent = {
-        title: "Tournament Announcement",
-        content: "Next tournament on Saturday",
-        league_id: mockLeague.id,
-      };
+  it("createEvent delegates to POST /api/events", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "e1" } as any);
 
-      const createdEvent = createMockEvent({
-        title: newEvent.title,
-        content: newEvent.content,
-        league_id: newEvent.league_id,
-      });
-
-      mockSupabase.from.mockReturnValue({
-        insert: vi.fn().mockReturnValue({
-          select: vi
-            .fn()
-            .mockResolvedValue({ data: createdEvent, error: null }),
-        }),
-      });
-
-      expect(createEvent).toBeDefined();
-      expect(typeof createEvent).toBe("function");
+    await createEvent({
+      leagueId: "l1",
+      title: "Title",
+      content: "Body",
+      pinned: false,
     });
 
-    it("should return event with id and created_at", async () => {
-      const mockEvent = createMockEvent();
-      expect(mockEvent.id).toBeTruthy();
-      expect(mockEvent.created_at).toBeTruthy();
-    });
-
-    it("should store content as JSONB", async () => {
-      expect(createEvent).toBeDefined();
+    expect(apiMutate).toHaveBeenCalledWith("/api/events", "POST", {
+      leagueId: "l1",
+      title: "Title",
+      content: "Body",
+      pinned: false,
     });
   });
 
-  describe("Delete Event Scenario", () => {
-    it("should delete event by id and confirm removal", async () => {
-      mockSupabase.from.mockReturnValue({
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        }),
-      });
+  it("deleteEvent delegates to DELETE /api/events/[id]", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ success: true } as any);
 
-      expect(deleteEvent).toBeDefined();
-      expect(typeof deleteEvent).toBe("function");
-    });
+    await deleteEvent({ eventId: "e1" });
 
-    it("should filter by correct event id", async () => {
-      mockSupabase.from.mockReturnValue({
-        delete: vi.fn().mockReturnValue({
-          eq: vi.fn((field, _value) => {
-            expect(field).toBe("id");
-            return { error: null };
-          }),
-        }),
-      });
+    expect(apiMutate).toHaveBeenCalledWith("/api/events/e1", "DELETE");
+  });
 
-      expect(deleteEvent).toBeDefined();
+  it("updateEvent delegates to PATCH /api/events/[id]", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "e1" } as any);
+
+    await updateEvent({ eventId: "e1", title: "New" });
+
+    expect(apiMutate).toHaveBeenCalledWith("/api/events/e1", "PATCH", {
+      title: "New",
     });
   });
 
-  describe("Toggle Pin Scenario", () => {
-    it("should flip boolean pin status and persist", async () => {
-      const eventId = "event-123";
-      const currentPinnedStatus = false;
+  it("toggleEventPin flips current pin value", async () => {
+    vi.mocked(apiMutate).mockResolvedValue({ id: "e1", pinned: true } as any);
 
-      const updatedEvent = createMockEvent({
-        id: eventId,
-        pinned: !currentPinnedStatus,
-      });
+    await toggleEventPin({ eventId: "e1", currentPinned: false });
 
-      mockSupabase.from.mockReturnValue({
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            select: vi
-              .fn()
-              .mockResolvedValue({ data: updatedEvent, error: null }),
-          }),
-        }),
-      });
-
-      expect(toggleEventPin).toBeDefined();
-      expect(typeof toggleEventPin).toBe("function");
-    });
-
-    it("should return updated event with new pin status", async () => {
-      const mockEvent = createMockEvent({ pinned: true });
-      expect(mockEvent.pinned).toBe(true);
-    });
-
-    it("should handle toggle from pinned=true to pinned=false", async () => {
-      expect(toggleEventPin).toBeDefined();
+    expect(apiMutate).toHaveBeenCalledWith("/api/events/e1", "PATCH", {
+      pinned: true,
     });
   });
 
-  // Sanity checks for export existence
-  it("should export createEvent function", () => {
-    expect(typeof createEvent).toBe("function");
-  });
+  it("fetchEvents delegates to GET /api/league/[id]/events", async () => {
+    vi.mocked(apiFetch).mockResolvedValue([] as any);
 
-  it("should export deleteEvent function", () => {
-    expect(typeof deleteEvent).toBe("function");
-  });
+    await fetchEvents("league-1");
 
-  it("should export toggleEventPin function", () => {
-    expect(typeof toggleEventPin).toBe("function");
+    expect(apiFetch).toHaveBeenCalledWith("/api/league/league-1/events");
   });
 });

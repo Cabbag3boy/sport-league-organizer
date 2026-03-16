@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { getSupabase } from "@/utils/supabase";
 import { useLeagueStore } from "@/stores";
 import { useCsrfValidation } from "@/features/auth/hooks";
 import ConfirmModal from "@/components/shared/ConfirmModal";
+import { apiMutate } from "@/utils/apiClient";
 
 interface SeasonSectionProps {
   onRefresh: () => void;
@@ -17,26 +17,26 @@ const SeasonSection: React.FC<SeasonSectionProps> = ({ onRefresh }) => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const supabase = getSupabase();
   const { validateAndExecute } = useCsrfValidation();
 
   const handleAddSeason = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase || !newSeasonName.trim() || !currentLeagueId) return;
+    if (!newSeasonName.trim() || !currentLeagueId) return;
     setIsLoading(true);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase.from("seasons").insert({
-          name: newSeasonName.trim(),
-          league_id: currentLeagueId,
-        });
-
-        if (error) {
-          alert(error.message);
-        } else {
+        try {
+          await apiMutate("/api/seasons", "POST", {
+            name: newSeasonName.trim(),
+            leagueId: currentLeagueId,
+          });
           setNewSeasonName("");
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          alert(message);
         }
       },
       {
@@ -44,28 +44,28 @@ const SeasonSection: React.FC<SeasonSectionProps> = ({ onRefresh }) => {
           console.error("CSRF validation failed:", error);
           alert("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };
 
   const handleUpdate = async () => {
-    if (!supabase || !editingId) return;
+    if (!editingId) return;
     setIsLoading(true);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase
-          .from("seasons")
-          .update({ name: editName.trim() })
-          .eq("id", editingId);
-
-        if (error) {
-          alert(error.message);
-        } else {
+        try {
+          await apiMutate(`/api/seasons/${editingId}`, "PATCH", {
+            name: editName.trim(),
+          });
           setEditingId(null);
           setEditName("");
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          alert(message);
         }
       },
       {
@@ -73,27 +73,25 @@ const SeasonSection: React.FC<SeasonSectionProps> = ({ onRefresh }) => {
           console.error("CSRF validation failed:", error);
           alert("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };
 
   const handleDelete = async () => {
-    if (!supabase || !isDeleting) return;
+    if (!isDeleting) return;
     setIsLoading(true);
 
     await validateAndExecute(
       async () => {
-        const { error } = await supabase
-          .from("seasons")
-          .delete()
-          .eq("id", isDeleting);
-
-        if (error) {
-          alert(error.message);
-        } else {
+        try {
+          await apiMutate(`/api/seasons/${isDeleting}`, "DELETE");
           setIsDeleting(null);
           onRefresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Internal error";
+          alert(message);
         }
       },
       {
@@ -101,7 +99,7 @@ const SeasonSection: React.FC<SeasonSectionProps> = ({ onRefresh }) => {
           console.error("CSRF validation failed:", error);
           alert("Bezpečnostní kontrola se nezdařila. Zkuste znovu.");
         },
-      }
+      },
     );
     setIsLoading(false);
   };

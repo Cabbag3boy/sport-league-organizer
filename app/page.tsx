@@ -1,5 +1,4 @@
 import AppClient from "@/app/AppClient";
-import { ClientOnly } from "@/components/ClientOnly";
 import { cookies } from "next/headers";
 import { fetchBootstrapLeagueData } from "@/features/league/services";
 import { createPublicServerSupabase } from "@/utils/supabaseServer";
@@ -19,13 +18,5 @@ export default async function HomePage() {
     console.error("Server bootstrap failed:", err);
   }
 
-  return (
-    <ClientOnly
-      fallback={
-        <div className="flex items-center justify-center min-h-screen bg-gray-900" />
-      }
-    >
-      <AppClient initialData={initialData} />
-    </ClientOnly>
-  );
+  return <AppClient initialData={initialData} />;
 }

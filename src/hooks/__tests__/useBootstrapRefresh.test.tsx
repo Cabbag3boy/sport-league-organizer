@@ -198,4 +198,31 @@ describe("useBootstrapRefresh", () => {
       expect(setShowLogin).toHaveBeenCalledWith(true);
     });
   });
+
+  it("sets dbError when fetch fails with non-security error", async () => {
+    const err = new Error("Internal Server Error");
+    mockFetchCompleteData.mockRejectedValueOnce(err);
+
+    const setShowLogin = vi.fn();
+    const handleSecurityError = vi.fn().mockReturnValue(false);
+
+    const { result } = renderHook(() =>
+      useBootstrapRefresh({
+        setShowLogin,
+        handleSecurityError,
+        setPresentPlayerIds: vi.fn() as any,
+      }),
+    );
+
+    act(() => {
+      result.current.runInitialFallbackBootstrap();
+    });
+
+    await waitFor(() => {
+      expect(handleSecurityError).toHaveBeenCalledWith(err);
+      expect(result.current.dbError).toBe("Internal Server Error");
+    });
+
+    expect(setShowLogin).not.toHaveBeenCalled();
+  });
 });

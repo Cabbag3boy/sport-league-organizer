@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { DBEvent } from "@/types";
 import { createPublicServerSupabase } from "@/utils/supabaseServer";
 import {
   getAccessTokenFromRequest,
   validateSessionToken,
 } from "@/utils/authValidation";
+import { fetchLeagueEventsServer } from "@/features/events/services/eventReadService";
 
 type RouteParams = {
   params: Promise<{ leagueId: string }>;
@@ -28,18 +28,8 @@ export async function GET(req: NextRequest, context: RouteParams) {
       }
     }
 
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .eq("league_id", leagueId)
-      .order("pinned", { ascending: false })
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json((data as DBEvent[]) || []);
+    const events = await fetchLeagueEventsServer(supabase, leagueId);
+    return NextResponse.json(events);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });
