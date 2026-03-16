@@ -36,7 +36,7 @@ export const useLeagueStore = create<LeagueState>()(
       {
         name: "league-store",
         // Prevent unnecessary re-renders from rehydration
-        onRehydrateStorage: () => (state) => {
+        onRehydrateStorage: () => () => {
           // Rehydration hook - state is already restored from localStorage
           // No need to manually update anything
         },

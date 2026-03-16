@@ -6,90 +6,112 @@ import type {
   ToggleEventPinInput,
 } from "@/types";
 import { getSupabase } from "@/utils/supabase";
+import { getCsrfToken } from "@/features/auth/utils/csrfToken";
+
+type ApiErrorPayload = {
+  error?: string;
+};
+
+const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  const supabase = getSupabase();
+  if (!supabase) return headers;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+
+  return headers;
+};
+
+const getReadHeaders = async (): Promise<Record<string, string>> => {
+  const headers: Record<string, string> = {};
+
+  const supabase = getSupabase();
+  if (!supabase) return headers;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    headers.Authorization = `Bearer ${session.access_token}`;
+  }
+
+  return headers;
+};
+
+const parseApiResponse = async <T>(res: Response): Promise<T> => {
+  const data = (await res.json().catch(() => ({}))) as T & ApiErrorPayload;
+  if (!res.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+  return data;
+};
 
 /**
  * Event Service - Manages event operations (create, delete, toggle pin)
  */
 
 export async function createEvent(input: CreateEventInput): Promise<DBEvent> {
-  const { leagueId, title, content, pinned } = input;
-  const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase client not initialized");
+  const headers = await getAuthHeaders();
+  const res = await fetch("/api/events", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(input),
+  });
 
-  const { data, error } = await supabase
-    .from("events")
-    .insert({
-      title,
-      content,
-      pinned,
-      league_id: leagueId,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as DBEvent;
+  return parseApiResponse<DBEvent>(res);
 }
 
 export async function deleteEvent(input: DeleteEventInput): Promise<void> {
   const { eventId } = input;
-  const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase client not initialized");
+  const headers = await getAuthHeaders();
+  const res = await fetch(`/api/events/${eventId}`, {
+    method: "DELETE",
+    headers,
+  });
 
-  const { error } = await supabase.from("events").delete().eq("id", eventId);
-
-  if (error) throw error;
+  await parseApiResponse<{ success: boolean }>(res);
 }
 
 export async function updateEvent(input: UpdateEventInput): Promise<DBEvent> {
-  const { eventId, title, content, pinned } = input;
-  const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase client not initialized");
+  const { eventId, ...updates } = input;
+  const headers = await getAuthHeaders();
+  const res = await fetch(`/api/events/${eventId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(updates),
+  });
 
-  const updates: Record<string, unknown> = {};
-  if (title !== undefined) updates.title = title;
-  if (content !== undefined) updates.content = content;
-  if (pinned !== undefined) updates.pinned = pinned;
-
-  const { data, error } = await supabase
-    .from("events")
-    .update(updates)
-    .eq("id", eventId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as DBEvent;
+  return parseApiResponse<DBEvent>(res);
 }
 
 export async function toggleEventPin(
   input: ToggleEventPinInput,
 ): Promise<DBEvent> {
   const { eventId, currentPinned } = input;
-  const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase client not initialized");
-
-  const { data, error } = await supabase
-    .from("events")
-    .update({ pinned: !currentPinned })
-    .eq("id", eventId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data as DBEvent;
+  return updateEvent({ eventId, pinned: !currentPinned });
 }
 
 export async function fetchEvents(leagueId: string): Promise<DBEvent[]> {
-  const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase client not initialized");
+  const headers = await getReadHeaders();
+  const res = await fetch(`/api/league/${leagueId}/events`, {
+    method: "GET",
+    headers,
+  });
 
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("league_id", leagueId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return (data as DBEvent[]) || [];
+  return parseApiResponse<DBEvent[]>(res);
 }

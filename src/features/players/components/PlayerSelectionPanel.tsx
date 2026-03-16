@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from "react";
+import React from "react";
 import type { Player } from "../../../types";
 import PlayerCard from "./PlayerCard";
 
@@ -15,11 +15,6 @@ const PlayerSelectionPanel: React.FC<PlayerSelectionPanelProps> = ({
   onPlayerToggle,
   rankChanges,
 }) => {
-  const presentPlayersCount = useMemo(
-    () => Array.from(presentPlayerIds).length,
-    [presentPlayerIds]
-  );
-
   return (
     <div>
       <h2 className="text-2xl font-semibold text-indigo-400 text-center mb-4">
@@ -41,4 +36,3 @@ const PlayerSelectionPanel: React.FC<PlayerSelectionPanelProps> = ({
 };
 
 export default PlayerSelectionPanel;
-

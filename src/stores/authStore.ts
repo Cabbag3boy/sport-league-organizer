@@ -20,7 +20,7 @@ export const useAuthStore = create<AuthState>()(
           session: state.session,
         }),
         // Prevent unnecessary re-renders from rehydration
-        onRehydrateStorage: () => (state) => {
+        onRehydrateStorage: () => () => {
           // Rehydration hook - state is already restored from localStorage
           // No need to manually update anything
         },

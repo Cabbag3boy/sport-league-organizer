@@ -61,7 +61,12 @@ const EditRoundModal: React.FC<EditRoundModalProps> = ({
   const updateNote = (id: string, note: string) => {
     setScores((prev) => ({
       ...prev,
-      [id]: { ...prev[id], note },
+      [id]: {
+        score1: prev[id]?.score1 ?? "",
+        score2: prev[id]?.score2 ?? "",
+        ...prev[id],
+        note,
+      },
     }));
   };
 

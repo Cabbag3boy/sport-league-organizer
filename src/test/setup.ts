@@ -31,3 +31,39 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
+// Default fetch mock for tests that mount App and hit local API endpoints.
+// Individual tests can override this with vi.mocked(fetch).mockResolvedValue(...).
+vi.stubGlobal(
+  "fetch",
+  vi.fn(async (input: string | URL | Request) => {
+    const url = typeof input === "string" ? input : input.toString();
+
+    if (url.includes("/api/league/bootstrap")) {
+      return {
+        ok: true,
+        json: async () => ({
+          leagues: [],
+          seasons: [],
+          globalPlayers: [],
+          players: [],
+          events: [],
+          roundHistory: [],
+          selectedLeagueId: "",
+          selectedSeasonId: "",
+        }),
+      } as Response;
+    }
+
+    if (url.includes("/api/auth/session")) {
+      return {
+        ok: true,
+        json: async () => ({ success: true }),
+      } as Response;
+    }
+
+    return {
+      ok: true,
+      json: async () => ({}),
+    } as Response;
+  }),
+);

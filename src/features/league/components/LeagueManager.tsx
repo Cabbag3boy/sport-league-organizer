@@ -156,7 +156,12 @@ const LeagueManager: React.FC<LeagueManagerProps> = ({
   const handleNoteUpdate = useCallback((matchId: string, note: string) => {
     setScores((prevScores) => ({
       ...prevScores,
-      [matchId]: { ...prevScores[matchId], note },
+      [matchId]: {
+        score1: prevScores[matchId]?.score1 ?? "",
+        score2: prevScores[matchId]?.score2 ?? "",
+        ...prevScores[matchId],
+        note,
+      },
     }));
   }, []);
 

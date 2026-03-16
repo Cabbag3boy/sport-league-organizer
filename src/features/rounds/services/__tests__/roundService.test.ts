@@ -6,7 +6,7 @@ import {
   undoLastRoundEdit,
 } from "../roundService";
 import { getSupabase } from "@/utils/supabase";
-import type { Player, RoundHistoryEntry } from "@/types";
+import type { Player } from "@/types";
 import {
   createMockRound,
   createMockRoundDetails,
@@ -25,6 +25,8 @@ describe("roundService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (getSupabase as any).mockReturnValue(mockSupabase);
+    mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null } });
+    vi.stubGlobal("fetch", vi.fn());
   });
 
   describe("Complete Round (4-Player Bracket) Scenario", () => {
@@ -263,38 +265,12 @@ describe("roundService", () => {
         "g1-m1": { score1: "10", score2: "8" },
       };
 
-      // Mock: round exists but is not the latest
-      const mockOldRound = createMockRound({ id: roundId });
-      const mockLatestRound = createMockRound({ id: "round-2" });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockOldRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockLatestRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          error: "Lze upravovat pouze poslední kolo.",
+        }),
+      } as unknown as Response);
 
       await expect(
         updateLastRoundResults(leagueId, roundId, newScores),
@@ -311,13 +287,6 @@ describe("roundService", () => {
         { id: "p4", first_name: "P", last_name: "4", name: "P 4", rank: 4 },
       ];
 
-      const oldScores = {
-        "g1-r1-m1": { score1: "10", score2: "5" }, // p1 wins
-        "g1-r1-m2": { score1: "8", score2: "6" }, // p2 wins
-        "g1-r2-m1": { score1: "9", score2: "7" }, // p1 wins final
-        "g1-r2-m2": { score1: "10", score2: "9" }, // p2 wins third
-      };
-
       const newScores = {
         "g1-r1-m1": { score1: "5", score2: "10" }, // p4 wins (flipped)
         "g1-r1-m2": { score1: "6", score2: "8" }, // p3 wins (flipped)
@@ -325,80 +294,13 @@ describe("roundService", () => {
         "g1-r2-m2": { score1: "9", score2: "10" }, // p2 wins third
       };
 
-      const mockRound = createMockRound({
-        id: roundId,
-        present_players: ["p1", "p2", "p3", "p4"],
-        details: createMockRoundDetails({
-          groups: [[players[0]!, players[1]!, players[2]!, players[3]!]],
-          scores: oldScores,
-          playersBefore: players,
-          playersAfter: [
-            { ...players[0]!, rank: 1 },
-            { ...players[1]!, rank: 2 },
-            { ...players[2]!, rank: 3 },
-            { ...players[3]!, rank: 4 },
-          ],
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          playersUpdated: players.length,
+          matchesUpdated: Object.keys(newScores).length,
         }),
-      });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          };
-        }
-        if (table === "players_in_leagues") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({
-                data: [
-                  { id: "link1", player_id: "p1" },
-                  { id: "link2", player_id: "p2" },
-                  { id: "link3", player_id: "p3" },
-                  { id: "link4", player_id: "p4" },
-                ],
-                error: null,
-              }),
-            }),
-            upsert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "matches") {
-          return {
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      } as unknown as Response);
 
       const result = await updateLastRoundResults(leagueId, roundId, newScores);
       expect(result).toBeDefined();
@@ -406,78 +308,27 @@ describe("roundService", () => {
       expect(result.matchesUpdated).toBeGreaterThan(0);
     });
 
-    it("should snapshot previous details for undo", async () => {
-      // This test verifies that the update call includes previousDetails
+    it("should send score updates to API", async () => {
       const leagueId = "league-1";
       const roundId = "round-1";
-      const mockRound = createMockRound({ id: roundId });
-
-      let capturedUpdateData: any = null;
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-            update: vi.fn((data) => {
-              capturedUpdateData = data;
-              return {
-                eq: vi.fn().mockResolvedValue({ error: null }),
-              };
-            }),
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          };
-        }
-        if (table === "players_in_leagues") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({
-                data: [{ id: "link1", player_id: "p1" }],
-                error: null,
-              }),
-            }),
-            upsert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "matches") {
-          return {
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          playersUpdated: 1,
+          matchesUpdated: 1,
+        }),
+      } as unknown as Response);
 
       const newScores = { "g1-m1": { score1: "5", score2: "3" } };
       await updateLastRoundResults(leagueId, roundId, newScores);
 
-      // Verify previousDetails is in the update call
-      if (capturedUpdateData) {
-        expect(capturedUpdateData.details).toBeDefined();
-        expect(capturedUpdateData.details.previousDetails).toBeDefined();
-      }
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/rounds/${roundId}/results`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ leagueId, newScores }),
+        }),
+      );
     });
   });
 
@@ -486,41 +337,12 @@ describe("roundService", () => {
       const leagueId = "league-1";
       const roundId = "round-1";
 
-      const mockRound = createMockRound({
-        id: roundId,
-        details: createMockRoundDetails({
-          // No previousDetails
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          error: "Žádná předchozí verze pro vrácení.",
         }),
-      });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      } as unknown as Response);
 
       await expect(undoLastRoundEdit(leagueId, roundId)).rejects.toThrow(
         "Žádná předchozí verze pro vrácení.",
@@ -535,94 +357,17 @@ describe("roundService", () => {
         { id: "p2", first_name: "P", last_name: "2", name: "P 2", rank: 2 },
       ];
 
-      const previousScores = {
-        "g1-m1": { score1: "10", score2: "8" },
-      };
       const currentScores = {
         "g1-m1": { score1: "8", score2: "10" },
       };
 
-      const mockRound = createMockRound({
-        id: roundId,
-        present_players: ["p1", "p2"],
-        details: {
-          groups: [[players[0]!, players[1]!]],
-          scores: currentScores,
-          finalPlacements: [[players[1]!, players[0]!]], // p2 first after edit
-          playersBefore: players,
-          playersAfter: [
-            { ...players[1]!, rank: 1 },
-            { ...players[0]!, rank: 2 },
-          ],
-          previousDetails: {
-            groups: [[players[0]!, players[1]!]],
-            scores: previousScores,
-            finalPlacements: [[players[0]!, players[1]!]], // p1 first before edit
-            playersBefore: players,
-            playersAfter: [
-              { ...players[0]!, rank: 1 },
-              { ...players[1]!, rank: 2 },
-            ],
-          },
-        },
-      });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          };
-        }
-        if (table === "players_in_leagues") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({
-                data: [
-                  { id: "link1", player_id: "p1" },
-                  { id: "link2", player_id: "p2" },
-                ],
-                error: null,
-              }),
-            }),
-            upsert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "matches") {
-          return {
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          playersUpdated: players.length,
+          matchesUpdated: Object.keys(currentScores).length,
+        }),
+      } as unknown as Response);
 
       const result = await undoLastRoundEdit(leagueId, roundId);
       expect(result).toBeDefined();
@@ -634,37 +379,12 @@ describe("roundService", () => {
       const leagueId = "league-1";
       const roundId = "round-1";
 
-      const mockOldRound = createMockRound({ id: roundId });
-      const mockLatestRound = createMockRound({ id: "round-2" });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockOldRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockLatestRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          error: "Lze vrátit pouze poslední kolo.",
+        }),
+      } as unknown as Response);
 
       await expect(undoLastRoundEdit(leagueId, roundId)).rejects.toThrow(
         "Lze vrátit pouze poslední kolo.",
@@ -680,87 +400,13 @@ describe("roundService", () => {
         { id: "p2", first_name: "P", last_name: "2", name: "P 2", rank: 2 },
       ];
 
-      const mockRound = createMockRound({
-        id: roundId,
-        present_players: ["p1", "p2"],
-        details: {
-          groups: [[players[0]!, players[1]!]],
-          scores: { "g1-m1": { score1: "8", score2: "10" } },
-          finalPlacements: [[players[1]!, players[0]!]],
-          playersBefore: players,
-          playersAfter: [
-            { ...players[1]!, rank: 1 },
-            { ...players[0]!, rank: 2 },
-          ],
-          previousDetails: {
-            groups: [[players[0]!, players[1]!]],
-            scores: { "g1-m1": { score1: "10", score2: "8" } },
-            finalPlacements: [[players[0]!, players[1]!]],
-            playersBefore: players,
-            playersAfter: [
-              { ...players[0]!, rank: 1 },
-              { ...players[1]!, rank: 2 },
-            ],
-          },
-        },
-      });
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === "rounds") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn((field, value) => {
-                if (field === "id") {
-                  return {
-                    single: vi.fn().mockResolvedValue({
-                      data: mockRound,
-                      error: null,
-                    }),
-                  };
-                }
-                // For season_id query
-                return {
-                  order: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({
-                      data: [mockRound],
-                      error: null,
-                    }),
-                  }),
-                };
-              }),
-            }),
-            update: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          };
-        }
-        if (table === "players_in_leagues") {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({
-                data: [
-                  { id: "link1", player_id: "p1" },
-                  { id: "link2", player_id: "p2" },
-                ],
-                error: null,
-              }),
-            }),
-            upsert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        if (table === "matches") {
-          return {
-            delete: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return createMockQueryBuilder();
-      });
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          playersUpdated: players.length,
+          matchesUpdated: 1,
+        }),
+      } as unknown as Response);
 
       await expect(undoLastRoundEdit(leagueId, roundId)).resolves.toBeDefined();
     });

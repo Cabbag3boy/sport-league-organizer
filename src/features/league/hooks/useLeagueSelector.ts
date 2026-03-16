@@ -1,8 +1,8 @@
-import type { DBLeague } from "../../types";
+import type { DBLeague } from "../../../types";
 
 export const useLeagueSelector = (
   leagues: DBLeague[],
-  currentLeagueId: string | null
+  currentLeagueId: string | null,
 ) => {
   const currentLeague =
     leagues.find((l) => l.id === currentLeagueId) || leagues[0];
@@ -14,5 +14,4 @@ export const useLeagueSelector = (
   };
 };
 
-export type { DBLeague } from "../../types";
-
+export type { DBLeague } from "../../../types";

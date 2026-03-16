@@ -14,6 +14,10 @@ import { useLeagueStore } from "@/stores";
 import { getSupabase } from "@/utils/supabase";
 import { calculateStandings } from "@/utils/shared/statsUtils";
 import { initializeCsrfToken } from "@/features/auth/utils";
+import {
+  clearServerSession,
+  syncServerSession,
+} from "@/features/auth/services/sessionSyncService";
 import { useCsrfHandler } from "@/features/auth/hooks";
 import { useNotification } from "@/hooks/useNotification";
 import { useLeagueDataFetch } from "@/hooks/useLeagueDataFetch";
@@ -95,11 +99,6 @@ const AppContent: React.FC = () => {
     setIsLoading(true);
     setDbError(null);
 
-    if (!supabase) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const data = await fetchCompleteData(
         leagueId,
@@ -160,13 +159,31 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     initializeCsrfToken();
 
-    if (!supabase) return;
+    if (!supabase) {
+      // Allow bootstrap data load even when client Supabase init is unavailable.
+      runInitialFetch();
+      isInitialAuthCheckRef.current = false;
+      return;
+    }
+
+    const syncSessionCookie = (accessToken: string | null) => {
+      const syncPromise = accessToken
+        ? syncServerSession(accessToken)
+        : clearServerSession();
+
+      syncPromise.catch((err) => {
+        console.error("Failed to sync server session:", err);
+      });
+    };
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, currentSession) => {
       // Always update session in store
       useAuthStore.setState({ session: currentSession });
+
+      // Keep server cookie session in sync for middleware/server routes
+      syncSessionCookie(currentSession?.access_token ?? null);
 
       // Handle auth state changes
       if (event === "INITIAL_SESSION") {

@@ -1,6 +1,6 @@
 # Sport League Organizer
 
-A modern web application for organizing and managing sports leagues, players, seasons, and match results. Built with React, TypeScript, and Supabase.
+A modern web application for organizing and managing sports leagues, players, seasons, and match results. Built with Next.js, React, TypeScript, and Supabase.
 
 ## Features
 
@@ -17,8 +17,7 @@ A modern web application for organizing and managing sports leagues, players, se
 
 ## Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **Build Tool**: Vite
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
 - **Testing**: Vitest with Testing Library
 - **Backend**: Supabase (PostgreSQL)
 - **Deployment**: Vercel
@@ -55,8 +54,8 @@ A modern web application for organizing and managing sports leagues, players, se
    Then edit `.env.local` with your Supabase credentials:
 
    ```env
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
 ### Development
@@ -67,7 +66,7 @@ Start the development server:
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`
+The app will be available at `http://localhost:3000`
 
 ### Testing
 
@@ -108,25 +107,21 @@ npm run preview
 ## Project Structure
 
 ```bash
+app/
+├── api/                 # Next.js API routes (server-side)
+├── layout.tsx           # Root layout
+└── page.tsx             # Home page
+
 src/
-├── components/          # React components
-│   ├── forms/          # Form components
-│   ├── shared/         # Shared/reusable components
-│   ├── tabs/           # Tab content components
-│   └── error/          # Error handling components
-├── features/           # Feature-specific modules
-│   ├── events/         # Event management
-│   ├── leagues/        # League management
-│   ├── players/        # Player management
-│   └── rounds/         # Round management
-├── stores/             # Zustand state stores
-├── hooks/              # Custom React hooks
-├── services/           # API/Supabase services
-├── utils/              # Utility functions
-├── contexts/           # React contexts
-├── __tests__/          # Integration tests
-├── test/               # Test utilities and setup
-└── types.ts            # TypeScript type definitions
+├── app/                 # Client bridge components
+├── components/          # Shared UI components
+├── features/            # Feature modules (auth, league, players, rounds, ...)
+├── hooks/               # Shared hooks
+├── stores/              # Zustand state stores
+├── test/                # Test setup and test helpers
+├── utils/               # Shared utilities
+├── __tests__/           # Integration tests
+└── types.ts             # TypeScript type definitions
 ```
 
 ## Environment Variables
@@ -134,8 +129,10 @@ src/
 Create a `.env.local` file in the root directory:
 
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+# Optional alias used by some deployments:
+# NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-anon-key
 ```
 
 ## Key Features Details
@@ -189,7 +186,7 @@ The project includes comprehensive integration and unit tests:
 Run specific test file:
 
 ```bash
-npm run test -- src/path/to/test.ts
+npx vitest run src/path/to/test.ts
 ```
 
 ## Deployment
@@ -214,8 +211,8 @@ The app is configured for deployment on Vercel. Push to main branch to trigger a
 
 ### Tests failing
 
-- Clear node_modules and reinstall: `rm -rf node_modules && npm install`
-- Clear vitest cache: `npm run test -- --clearCache`
+- Reinstall dependencies: `npm install`
+- Clear vitest cache: `npx vitest --clearCache`
 
 ### Build errors
 

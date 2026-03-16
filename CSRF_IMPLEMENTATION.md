@@ -2,11 +2,11 @@
 
 ## Overview
 
-CSRF (Cross-Site Request Forgery) token validation has been implemented to protect all Supabase mutations from unauthorized requests.
+CSRF (Cross-Site Request Forgery) token validation is implemented across client and server layers to protect mutation endpoints from unauthorized requests.
 
 ### Architecture
 
-#### 1. **CSRF Token Generation & Storage** (`src/utils/csrfToken.ts`)
+#### 1. **CSRF Token Generation & Storage** (`src/features/auth/utils/csrfToken.ts`)
 
 - **`initializeCsrfToken()`** - Called on app initialization; generates or retrieves existing token
 - **`generateCsrfToken()`** - Creates a cryptographically secure random 64-character token using Web Crypto API
@@ -16,7 +16,7 @@ CSRF (Cross-Site Request Forgery) token validation has been implemented to prote
 - **`validateCsrfToken(token)`** - Validates that provided token matches stored token
 - **`getCsrfHeader()`** - Returns header object for including token in requests
 
-#### 2. **CSRF Validation Hook** (`src/hooks/useCsrfValidation.ts`)
+#### 2. **Client-Side Validation Hook** (`src/features/auth/hooks/useCsrfValidation.ts`)
 
 - **`useCsrfValidation()`** - React hook that wraps mutations with CSRF validation
 - **`validateAndExecute(mutationFn, options)`** - Validates CSRF token before executing mutation
@@ -24,6 +24,12 @@ CSRF (Cross-Site Request Forgery) token validation has been implemented to prote
   - ✅ Executes mutation function
   - ✅ Regenerates token after successful mutation
   - ❌ Logs error and calls onError callback if validation fails
+
+#### 3. **Server-Side Enforcement**
+
+- **`middleware.ts`** - Blocks mutating requests to protected API routes unless both auth and `x-csrf-token` are present
+- **`src/utils/authValidation.ts`** - Validates session token + CSRF header format on API handlers
+- **API routes in `app/api/**`** - Call `validateAuthenticatedRequest(...)` for authenticated mutation endpoints
 
 ### Integration Points
 
@@ -37,7 +43,7 @@ useEffect(() => {
 }, []);
 ```
 
-All mutations now wrapped with `validateAndExecute()`:
+Client mutations are wrapped with `validateAndExecute()`:
 
 - `handleAddPlayers()` - Add new players to league
 - `handleAddExistingPlayer()` - Add existing players to league
@@ -49,7 +55,7 @@ All mutations now wrapped with `validateAndExecute()`:
 
 #### **LeagueSection.tsx**
 
-CSRF validation for league CRUD operations:
+Client-side CSRF validation for league CRUD operations:
 
 - `handleAddLeague()` - Create new league
 - `handleUpdate()` - Update league name
@@ -57,7 +63,7 @@ CSRF validation for league CRUD operations:
 
 #### **SeasonSection.tsx**
 
-CSRF validation for season CRUD operations:
+Client-side CSRF validation for season CRUD operations:
 
 - `handleAddSeason()` - Create new season
 - `handleUpdate()` - Update season name
@@ -78,7 +84,9 @@ Mutation executes
   ↓
 Token regenerated on success
   ↓
-Ready for next mutation
+Client sends token in X-CSRF-Token header
+  ↓
+Server middleware and API handlers validate request
 ```
 
 ### Security Properties
@@ -86,7 +94,7 @@ Ready for next mutation
 ✅ **Session-bound** - Token stored in sessionStorage, cleared when tab closes
 ✅ **Cryptographically random** - Uses Web Crypto API for secure generation
 ✅ **Single-use pattern** - Token regenerated after each mutation
-✅ **Transparent validation** - Automatically checked before all mutations
+✅ **Defense in depth** - Client checks + server middleware + API validation
 ✅ **Error handling** - Failed validation caught with user-friendly messages
 
 ### Error Handling
@@ -100,11 +108,10 @@ When CSRF validation fails:
 
 ### Future Enhancements
 
-- [ ] Add CSRF token to HTTP headers on Supabase requests (when Supabase supports custom headers)
-- [ ] Implement server-side CSRF token validation in Supabase RLS policies
-- [ ] Add rate limiting to prevent brute force token validation attacks
-- [ ] Track token usage metrics for security auditing
-- [ ] Implement sliding window token rotation for longer sessions
+- [ ] Add rate limiting on protected mutation endpoints
+- [ ] Add CSRF/auth validation audit logging for security monitoring
+- [ ] Add integration tests for middleware edge cases
+- [ ] Consider stricter token expiry/rotation policy per session
 
 ### Testing
 
