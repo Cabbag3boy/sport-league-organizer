@@ -10,7 +10,8 @@
     "preview": "next start",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:boundary": "vitest run app/api/__tests__/leagueSeasonMutations.test.ts app/api/__tests__/leagueSeasonReads.test.ts app/api/__tests__/leagueBootstrapRoute.test.ts app/api/__tests__/eventPlayerMutations.test.ts app/api/__tests__/roundMutations.test.ts src/features/players/services/__tests__/playerService.test.ts src/features/events/services/__tests__/eventService.test.ts src/features/rounds/services/__tests__/roundService.test.ts src/hooks/__tests__/useBootstrapRefresh.test.tsx src/features/auth/hooks/__tests__/useAuthSessionSync.test.tsx && npm run build"
   },
   "dependencies": {
     "next": "^15.2.0",

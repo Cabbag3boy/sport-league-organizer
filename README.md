@@ -88,6 +88,12 @@ Generate coverage report:
 npm run test:coverage
 ```
 
+Run boundary safety suite (API route contracts + key service contracts + production build):
+
+```bash
+npm run test:boundary
+```
+
 View the detailed HTML coverage report in `coverage/index.html`. See [COVERAGE.md](COVERAGE.md) for analysis and improvement roadmap.
 
 ### Building
