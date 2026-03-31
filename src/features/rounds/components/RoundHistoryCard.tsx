@@ -336,7 +336,7 @@ const RoundHistoryCard: React.FC<RoundHistoryCardProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {isLastRound && (
+          {isLastRound && isAuthenticated && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
